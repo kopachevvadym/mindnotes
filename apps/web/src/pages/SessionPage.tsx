@@ -31,7 +31,7 @@ export function SessionPage({ sessionId }: SessionPageProps) {
         <ThoughtStream thoughts={thoughts} />
       </main>
 
-      <CaptureBar />
+      <CaptureBar sessionId={sessionId} />
     </div>
   );
 }

@@ -27,6 +27,12 @@ export const sessionDetailSchema = z.object({
   thoughts: z.array(thoughtDtoSchema),
 });
 
+/** POST /sessions/:id/thoughts — тіло запиту. body непорожній після trim. */
+export const createThoughtInputSchema = z.object({
+  body: z.string().trim().min(1),
+});
+
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
 export type SessionDto = z.infer<typeof sessionDtoSchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
+export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;

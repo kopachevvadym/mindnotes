@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { sessionDetailSchema, type SessionDetail } from "@mindnotes/schema";
+import {
+  sessionDetailSchema,
+  thoughtDtoSchema,
+  type SessionDetail,
+  type ThoughtDto,
+  type CreateThoughtInput,
+} from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
@@ -21,9 +27,14 @@ export class ApiError extends Error {
  * Єдиний типізований fetch-клієнт. Кожна відповідь валідується спільною
  * zod-схемою з @mindnotes/schema. Жодних localhost-рядків поза цим модулем.
  */
-async function request<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+async function request<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  init?: RequestInit,
+): Promise<T> {
   const res = await fetch(`${baseUrl}${path}`, {
-    headers: { Accept: "application/json" },
+    ...init,
+    headers: { Accept: "application/json", ...init?.headers },
   });
 
   if (!res.ok) {
@@ -37,5 +48,13 @@ async function request<T>(path: string, schema: z.ZodType<T>): Promise<T> {
 export const api = {
   getSession(id: string): Promise<SessionDetail> {
     return request(`/sessions/${id}`, sessionDetailSchema);
+  },
+
+  createThought(sessionId: string, input: CreateThoughtInput): Promise<ThoughtDto> {
+    return request(`/sessions/${sessionId}/thoughts`, thoughtDtoSchema, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
   },
 };

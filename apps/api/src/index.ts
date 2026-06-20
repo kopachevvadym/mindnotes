@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { asc, eq } from "drizzle-orm";
-import { sessions, thoughts, sessionDetailSchema } from "@mindnotes/schema";
+import {
+  sessions,
+  thoughts,
+  sessionDetailSchema,
+  createThoughtInputSchema,
+  thoughtDtoSchema,
+} from "@mindnotes/schema";
 import { db } from "./db";
 import { env } from "./env";
 import { serializeSession, serializeThought } from "./serialize";
@@ -40,6 +46,30 @@ app.get("/sessions/:id", async (c) => {
   });
 
   return c.json(payload);
+});
+
+// POST /sessions/:id/thoughts → створює думку, повертає її (created_at asc у кінці потоку)
+app.post("/sessions/:id/thoughts", async (c) => {
+  const id = c.req.param("id");
+
+  const json = await c.req.json().catch(() => null);
+  const parsed = createThoughtInputSchema.safeParse(json);
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+  if (!session) {
+    return c.json({ error: "session_not_found" }, 404);
+  }
+
+  const [row] = await db
+    .insert(thoughts)
+    .values({ sessionId: id, body: parsed.data.body })
+    .returning();
+
+  const payload = thoughtDtoSchema.parse(serializeThought(row!));
+  return c.json(payload, 201);
 });
 
 export default {
