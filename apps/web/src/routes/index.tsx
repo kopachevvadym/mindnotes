@@ -1,12 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { SEED_SESSION_ID } from "@mindnotes/schema";
+import { createFileRoute } from "@tanstack/react-router";
+import { SessionsListPage } from "@/pages/SessionsListPage";
 
-/** Корінь редіректить на засіяну сесію. */
+/** Корінь — екран-список сесій. */
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    throw redirect({
-      to: "/sessions/$sessionId",
-      params: { sessionId: SEED_SESSION_ID },
-    });
-  },
+  component: SessionsListPage,
 });

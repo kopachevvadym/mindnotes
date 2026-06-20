@@ -1,11 +1,16 @@
 import { z } from "zod";
 import {
+  sessionDtoSchema,
   sessionDetailSchema,
+  sessionListSchema,
   thoughtDtoSchema,
+  type SessionDto,
   type SessionDetail,
+  type SessionListItem,
   type ThoughtDto,
   type CreateThoughtInput,
   type UpdateThoughtInput,
+  type UpdateSessionInput,
 } from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -47,6 +52,32 @@ async function request<T>(
 }
 
 export const api = {
+  getSessions(): Promise<SessionListItem[]> {
+    return request(`/sessions`, sessionListSchema);
+  },
+
+  createSession(): Promise<SessionDto> {
+    return request(`/sessions`, sessionDtoSchema, { method: "POST" });
+  },
+
+  updateSession(id: string, input: UpdateSessionInput): Promise<SessionDto> {
+    return request(`/sessions/${id}`, sessionDtoSchema, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  },
+
+  async deleteSession(id: string): Promise<void> {
+    const res = await fetch(`${baseUrl}/sessions/${id}`, {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      throw new ApiError(`Запит DELETE /sessions/${id} повернув ${res.status}`, res.status);
+    }
+  },
+
   getSession(id: string): Promise<SessionDetail> {
     return request(`/sessions/${id}`, sessionDetailSchema);
   },

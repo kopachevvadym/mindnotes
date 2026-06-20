@@ -25,6 +25,8 @@ export function SessionPage({ sessionId }: SessionPageProps) {
   const { session, thoughts } = data;
   const activeCount = thoughts.filter((t) => !t.archived).length;
   const archivedCount = thoughts.length - activeCount;
+  // Порожня сесія: без назви й без жодної думки.
+  const isEmptySession = session.title === null && thoughts.length === 0;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -34,7 +36,11 @@ export function SessionPage({ sessionId }: SessionPageProps) {
         <ThoughtStream thoughts={thoughts} sessionId={sessionId} dimmed={isCapturing} />
       </main>
 
-      <CaptureBar sessionId={sessionId} onFocusChange={setIsCapturing} />
+      <CaptureBar
+        sessionId={sessionId}
+        isEmptySession={isEmptySession}
+        onFocusChange={setIsCapturing}
+      />
     </div>
   );
 }

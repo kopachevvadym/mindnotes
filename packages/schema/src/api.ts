@@ -27,6 +27,21 @@ export const sessionDetailSchema = z.object({
   thoughts: z.array(thoughtDtoSchema),
 });
 
+/** Елемент списку сесій (GET /sessions) — з агрегатом кількості думок. */
+export const sessionListItemSchema = z.object({
+  id: z.uuid(),
+  title: z.string().nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+  thoughtCount: z.number().int().nonnegative(),
+});
+
+export const sessionListSchema = z.array(sessionListItemSchema);
+
+/** PATCH /sessions/:id — тіло запиту. Назва ніколи не обовʼязкова. */
+export const updateSessionInputSchema = z.object({
+  title: z.string().nullable(),
+});
+
 /** POST /sessions/:id/thoughts — тіло запиту. body непорожній після trim. */
 export const createThoughtInputSchema = z.object({
   body: z.string().trim().min(1),
@@ -40,5 +55,7 @@ export const updateThoughtInputSchema = z.object({
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
 export type SessionDto = z.infer<typeof sessionDtoSchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
+export type SessionListItem = z.infer<typeof sessionListItemSchema>;
 export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;
 export type UpdateThoughtInput = z.infer<typeof updateThoughtInputSchema>;
+export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>;

@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import type { SessionDto } from "@mindnotes/schema";
 import { Button } from "@/components/ui/button";
+import { useUpdateSession } from "@/lib/mutations";
 import { formatSessionDate, pluralThoughts } from "@/lib/format";
 
 interface SessionHeaderProps {
@@ -10,21 +12,88 @@ interface SessionHeaderProps {
 }
 
 export function SessionHeader({ session, activeCount, archivedCount }: SessionHeaderProps) {
+  const updateSession = useUpdateSession(session.id);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  function startEditing() {
+    setDraft(session.title ?? "");
+    setEditing(true);
+  }
+
+  function commit() {
+    setEditing(false);
+    const next = draft.trim() === "" ? null : draft.trim(); // порожня назва дозволена → null
+    if (next !== session.title) {
+      updateSession.mutate({ title: next });
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setEditing(false);
+    }
+  }
+
   return (
-    <header className="sticky top-0 z-10 space-y-3 bg-background/80 pb-3 pt-8 backdrop-blur-sm">
+    <header className="sticky top-0 z-10 space-y-3 bg-background/80 pt-8 pb-3 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-4">
-        <h1 className="font-serif text-3xl font-semibold leading-tight tracking-tight text-foreground">
-          {session.title ?? "Нова сесія"}
-        </h1>
-        {/* ⌘K — поки лише візуально (крок наступний) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Пошук (⌘K)"
-          className="-mr-2 shrink-0 text-muted-foreground"
-        >
-          <Search />
-        </Button>
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={commit}
+            placeholder="Назва сесії"
+            aria-label="Назва сесії"
+            className="w-full border-0 border-b border-border bg-transparent pb-1 font-serif text-3xl font-semibold leading-tight tracking-tight text-foreground placeholder:not-italic placeholder:text-muted-foreground/60 focus:outline-none"
+          />
+        ) : session.title ? (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="text-left font-serif text-3xl font-semibold leading-tight tracking-tight text-foreground transition-opacity hover:opacity-70"
+          >
+            {session.title}
+          </button>
+        ) : (
+          <div className="flex flex-col items-start gap-1">
+            <h1 className="font-serif text-3xl font-semibold italic leading-tight tracking-tight text-muted-foreground">
+              Нова сесія
+            </h1>
+            <button
+              type="button"
+              onClick={startEditing}
+              className="font-sans text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              + назвати сесію
+            </button>
+          </div>
+        )}
+
+        {!editing ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Пошук (⌘K)"
+            className="-mr-2 shrink-0 text-muted-foreground"
+          >
+            <Search />
+          </Button>
+        ) : null}
       </div>
 
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-sans text-sm text-muted-foreground">

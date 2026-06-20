@@ -1,10 +1,12 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { MoreHorizontal } from "lucide-react";
 import { useCreateThought } from "@/lib/mutations";
 import { cn } from "@/lib/utils";
+import { CaptureNavMenu } from "./CaptureNavMenu";
 
 interface CaptureBarProps {
   sessionId: string;
+  /** Сесія порожня: без назви й без жодної думки. */
+  isEmptySession: boolean;
   /** Повідомляє сторінку, що поле у фокусі (для приглушення потоку). */
   onFocusChange?: (focused: boolean) => void;
 }
@@ -17,7 +19,7 @@ const MAX_ROWS = 5;
  * Текст контролюється локальним useState. Після сабміту поле очищається й лишається
  * у фокусі; на помилку текст тихо повертається назад.
  */
-export function CaptureBar({ sessionId, onFocusChange }: CaptureBarProps) {
+export function CaptureBar({ sessionId, isEmptySession, onFocusChange }: CaptureBarProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const createThought = useCreateThought(sessionId);
@@ -67,15 +69,7 @@ export function CaptureBar({ sessionId, onFocusChange }: CaptureBarProps) {
               "placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none",
             )}
           />
-          {/* Меню думки — поки задизейблене (наступний крок) */}
-          <button
-            type="button"
-            disabled
-            aria-label="Меню"
-            className="-mr-1 shrink-0 rounded-md p-1 text-muted-foreground/60 disabled:cursor-not-allowed"
-          >
-            <MoreHorizontal className="size-6" />
-          </button>
+          <CaptureNavMenu sessionId={sessionId} isEmptySession={isEmptySession} />
         </div>
 
         <p className="mt-3 font-mono text-xs text-muted-foreground">
