@@ -1,0 +1,25 @@
+{
+  "name": "mindnotes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "dev:api": "pnpm --filter @mindnotes/api dev",
+    "dev:web": "pnpm --filter @mindnotes/web dev",
+    "db:generate": "pnpm --filter @mindnotes/api db:generate",
+    "db:migrate": "pnpm --filter @mindnotes/api db:migrate",
+    "db:push": "pnpm --filter @mindnotes/api db:push",
+    "db:seed": "pnpm --filter @mindnotes/api db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.18",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,50 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { asc, eq } from "drizzle-orm";
+import { sessions, thoughts, sessionDetailSchema } from "@mindnotes/schema";
+import { db } from "./db";
+import { env } from "./env";
+import { serializeSession, serializeThought } from "./serialize";
+
+const app = new Hono();
+
+app.use(
+  "/*",
+  cors({
+    origin: env.WEB_ORIGIN,
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  }),
+);
+
+app.get("/health", (c) => c.json({ ok: true }));
+
+// GET /sessions/:id → { session, thoughts (по created_at asc) }
+app.get("/sessions/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+  if (!session) {
+    return c.json({ error: "session_not_found" }, 404);
+  }
+
+  const rows = await db
+    .select()
+    .from(thoughts)
+    .where(eq(thoughts.sessionId, id))
+    .orderBy(asc(thoughts.createdAt));
+
+  // Валідуємо відповідь спільною zod-схемою перед віддачею.
+  const payload = sessionDetailSchema.parse({
+    session: serializeSession(session),
+    thoughts: rows.map(serializeThought),
+  });
+
+  return c.json(payload);
+});
+
+export default {
+  port: env.PORT,
+  fetch: app.fetch,
+};
+
+console.log(`🟢 api на http://localhost:${env.PORT}`);
