@@ -42,3 +42,13 @@ pnpm db:migrate             # застосувати міграції
 pnpm db:push                # запушити схему напряму (швидкий прототип, без міграцій)
 pnpm db:seed                # засіяти демо-сесію
 ```
+
+Four rules:
+
+1. Ask, don’t assume. If something’s unclear, ask before writing a line and no silent guesses about intent, architecture, or requirements.
+
+2. Simplest solution first and implement the minimum thing that works. No abstractions you didn’t request.
+
+3. Don’t touch unrelated code and if a file isn’t part of the current task, leave it.
+
+4. Flag uncertainty explicitly or if you’re not confident, say so before proceeding as confidence without certainty causes more damage than admitting a gap.
