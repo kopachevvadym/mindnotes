@@ -27,7 +27,7 @@ export function ThoughtStream({ thoughts, dimmed = false }: ThoughtStreamProps) 
         <li key={thought.id}>
           <p
             className={cn(
-              "font-serif text-lg leading-relaxed",
+              "whitespace-pre-wrap font-serif text-lg leading-relaxed",
               thought.archived ? "text-muted-foreground/70 italic" : "text-foreground",
             )}
           >

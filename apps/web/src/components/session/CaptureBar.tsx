@@ -1,6 +1,5 @@
-import { useState, type KeyboardEvent } from "react";
-import { ArrowUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { MoreHorizontal } from "lucide-react";
 import { useCreateThought } from "@/lib/mutations";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +9,9 @@ interface CaptureBarProps {
   onFocusChange?: (focused: boolean) => void;
 }
 
+/** Поле росте з кількістю рядків; далі — скрол. */
+const MAX_ROWS = 5;
+
 /**
  * Поле захоплення. Enter — сабміт, Shift+Enter — новий рядок, порожнє — no-op.
  * Текст контролюється локальним useState. Після сабміту поле очищається й лишається
@@ -17,7 +19,18 @@ interface CaptureBarProps {
  */
 export function CaptureBar({ sessionId, onFocusChange }: CaptureBarProps) {
   const [text, setText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const createThought = useCreateThought(sessionId);
+
+  // Підганяємо висоту під вміст (до MAX_ROWS рядків), далі — скрол.
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 0;
+    const maxHeight = lineHeight * MAX_ROWS;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, [text]);
 
   function submit() {
     const body = text.trim();
@@ -36,25 +49,38 @@ export function CaptureBar({ sessionId, onFocusChange }: CaptureBarProps) {
   }
 
   return (
-    <div className="sticky bottom-0 z-10 bg-linear-to-t from-background via-background to-transparent pb-[max(env(safe-area-inset-bottom),1rem)] pt-6">
-      <div className="mx-auto flex w-full max-w-reading items-end gap-2">
-        <textarea
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => onFocusChange?.(true)}
-          onBlur={() => onFocusChange?.(false)}
-          rows={1}
-          placeholder="Запиши думку…"
-          aria-label="Запиши думку"
-          className={cn(
-            "flex max-h-40 min-h-11 w-full resize-none rounded-md border border-input bg-paper px-3 py-2.5 font-serif text-base text-foreground shadow-xs transition-colors",
-            "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-          )}
-        />
-        <Button size="icon" aria-label="Додати думку" onClick={submit} className="shrink-0">
-          <ArrowUp />
-        </Button>
+    <div className="sticky bottom-0 z-10 pb-[max(env(safe-area-inset-bottom),1rem)] pt-6">
+      <div className="mx-auto w-full max-w-reading rounded-2xl border border-border bg-paper px-6 pb-4 pt-5 shadow-lg">
+        <div className="flex items-start gap-3">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => onFocusChange?.(true)}
+            onBlur={() => onFocusChange?.(false)}
+            rows={1}
+            placeholder="Запиши думку…"
+            aria-label="Запиши думку"
+            className={cn(
+              "flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 font-serif text-lg leading-relaxed text-foreground",
+              "placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none",
+            )}
+          />
+          {/* Меню думки — поки задизейблене (наступний крок) */}
+          <button
+            type="button"
+            disabled
+            aria-label="Меню"
+            className="-mr-1 shrink-0 rounded-md p-1 text-muted-foreground/60 disabled:cursor-not-allowed"
+          >
+            <MoreHorizontal className="size-6" />
+          </button>
+        </div>
+
+        <p className="mt-3 font-mono text-xs text-muted-foreground">
+          Enter — наступна · Shift+Enter — новий рядок
+        </p>
       </div>
     </div>
   );
