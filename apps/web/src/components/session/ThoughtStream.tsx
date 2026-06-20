@@ -20,7 +20,7 @@ export function ThoughtStream({ thoughts, dimmed = false }: ThoughtStreamProps) 
     <ol
       className={cn(
         "space-y-7 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
-        dimmed ? "opacity-[0.45]" : "opacity-100",
+        dimmed ? "opacity-[0.7]" : "opacity-100",
       )}
     >
       {thoughts.map((thought) => (
