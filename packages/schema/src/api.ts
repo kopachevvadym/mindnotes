@@ -32,7 +32,13 @@ export const createThoughtInputSchema = z.object({
   body: z.string().trim().min(1),
 });
 
+/** PATCH /thoughts/:id — тіло запиту. */
+export const updateThoughtInputSchema = z.object({
+  archived: z.boolean(),
+});
+
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
 export type SessionDto = z.infer<typeof sessionDtoSchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
 export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;
+export type UpdateThoughtInput = z.infer<typeof updateThoughtInputSchema>;

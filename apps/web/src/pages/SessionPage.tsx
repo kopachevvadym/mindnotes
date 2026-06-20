@@ -31,7 +31,7 @@ export function SessionPage({ sessionId }: SessionPageProps) {
       <SessionHeader session={session} activeCount={activeCount} archivedCount={archivedCount} />
 
       <main className="flex-1 pt-10">
-        <ThoughtStream thoughts={thoughts} dimmed={isCapturing} />
+        <ThoughtStream thoughts={thoughts} sessionId={sessionId} dimmed={isCapturing} />
       </main>
 
       <CaptureBar sessionId={sessionId} onFocusChange={setIsCapturing} />

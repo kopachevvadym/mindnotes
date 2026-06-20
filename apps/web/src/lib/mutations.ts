@@ -49,3 +49,47 @@ export function useCreateThought(sessionId: string) {
     },
   });
 }
+
+/**
+ * Архівування / розархівування думки з оптимістичним перемиканням `archived`:
+ * думка миттєво сіріє/світлішає. onError — відкат; onSettled — реконсайл.
+ */
+export function useSetThoughtArchived(sessionId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = sessionQuery(sessionId);
+
+  return useMutation<
+    ThoughtDto,
+    Error,
+    { id: string; archived: boolean },
+    CreateThoughtContext
+  >({
+    mutationFn: ({ id, archived }) => api.updateThought(id, { archived }),
+
+    onMutate: async ({ id, archived }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
+
+      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
+        old
+          ? {
+              ...old,
+              thoughts: old.thoughts.map((t) => (t.id === id ? { ...t, archived } : t)),
+            }
+          : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}

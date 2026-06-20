@@ -6,6 +6,7 @@ import {
   thoughts,
   sessionDetailSchema,
   createThoughtInputSchema,
+  updateThoughtInputSchema,
   thoughtDtoSchema,
 } from "@mindnotes/schema";
 import { db } from "./db";
@@ -70,6 +71,30 @@ app.post("/sessions/:id/thoughts", async (c) => {
 
   const payload = thoughtDtoSchema.parse(serializeThought(row!));
   return c.json(payload, 201);
+});
+
+// PATCH /thoughts/:id → архівувати/розархівувати, повертає оновлену думку
+app.patch("/thoughts/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const json = await c.req.json().catch(() => null);
+  const parsed = updateThoughtInputSchema.safeParse(json);
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  const [row] = await db
+    .update(thoughts)
+    .set({ archived: parsed.data.archived })
+    .where(eq(thoughts.id, id))
+    .returning();
+
+  if (!row) {
+    return c.json({ error: "thought_not_found" }, 404);
+  }
+
+  const payload = thoughtDtoSchema.parse(serializeThought(row));
+  return c.json(payload);
 });
 
 export default {
