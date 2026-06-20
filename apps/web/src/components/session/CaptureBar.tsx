@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 
 interface CaptureBarProps {
   sessionId: string;
+  /** Повідомляє сторінку, що поле у фокусі (для приглушення потоку). */
+  onFocusChange?: (focused: boolean) => void;
 }
 
 /**
@@ -13,7 +15,7 @@ interface CaptureBarProps {
  * Текст контролюється локальним useState. Після сабміту поле очищається й лишається
  * у фокусі; на помилку текст тихо повертається назад.
  */
-export function CaptureBar({ sessionId }: CaptureBarProps) {
+export function CaptureBar({ sessionId, onFocusChange }: CaptureBarProps) {
   const [text, setText] = useState("");
   const createThought = useCreateThought(sessionId);
 
@@ -40,6 +42,8 @@ export function CaptureBar({ sessionId }: CaptureBarProps) {
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => onFocusChange?.(true)}
+          onBlur={() => onFocusChange?.(false)}
           rows={1}
           placeholder="Запиши думку…"
           aria-label="Запиши думку"

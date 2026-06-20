@@ -3,9 +3,11 @@ import { cn } from "@/lib/utils";
 
 interface ThoughtStreamProps {
   thoughts: ThoughtDto[];
+  /** Приглушити потік, поки користувач пише (фокус уперед). */
+  dimmed?: boolean;
 }
 
-export function ThoughtStream({ thoughts }: ThoughtStreamProps) {
+export function ThoughtStream({ thoughts, dimmed = false }: ThoughtStreamProps) {
   if (thoughts.length === 0) {
     return (
       <p className="py-16 text-center font-serif text-lg italic text-muted-foreground">
@@ -15,7 +17,12 @@ export function ThoughtStream({ thoughts }: ThoughtStreamProps) {
   }
 
   return (
-    <ol className="space-y-7">
+    <ol
+      className={cn(
+        "space-y-7 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
+        dimmed ? "opacity-[0.45]" : "opacity-100",
+      )}
+    >
       {thoughts.map((thought) => (
         <li key={thought.id}>
           <p

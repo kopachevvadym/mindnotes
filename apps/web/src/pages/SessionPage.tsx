@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sessionQuery } from "@/lib/queries";
 import { SessionHeader } from "@/components/session/SessionHeader";
@@ -10,6 +11,8 @@ interface SessionPageProps {
 
 export function SessionPage({ sessionId }: SessionPageProps) {
   const { data, isPending, isError, error } = useQuery(sessionQuery(sessionId));
+  // Поле захоплення у фокусі → приглушуємо потік (фокус уперед).
+  const [isCapturing, setIsCapturing] = useState(false);
 
   if (isPending) {
     return <StatusNote>Завантаження…</StatusNote>;
@@ -28,10 +31,10 @@ export function SessionPage({ sessionId }: SessionPageProps) {
       <SessionHeader session={session} activeCount={activeCount} archivedCount={archivedCount} />
 
       <main className="flex-1 pt-10">
-        <ThoughtStream thoughts={thoughts} />
+        <ThoughtStream thoughts={thoughts} dimmed={isCapturing} />
       </main>
 
-      <CaptureBar sessionId={sessionId} />
+      <CaptureBar sessionId={sessionId} onFocusChange={setIsCapturing} />
     </div>
   );
 }
