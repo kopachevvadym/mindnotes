@@ -11,7 +11,7 @@ interface SessionHeaderProps {
 
 export function SessionHeader({ session, activeCount, archivedCount }: SessionHeaderProps) {
   return (
-    <header className="space-y-3 pt-8">
+    <header className="sticky top-0 z-10 space-y-3 bg-background/80 pb-3 pt-8 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-4">
         <h1 className="font-serif text-3xl font-semibold leading-tight tracking-tight text-foreground">
           {session.title ?? "Нова сесія"}
