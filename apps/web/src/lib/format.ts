@@ -13,12 +13,20 @@ export function pluralThoughts(n: number): string {
   return `${n} ${word}`;
 }
 
-const dateFmt = new Intl.DateTimeFormat("uk-UA", {
+const dateFmtWithYear = new Intl.DateTimeFormat("uk-UA", {
   day: "numeric",
   month: "long",
   year: "numeric",
 });
 
+const dateFmtNoYear = new Intl.DateTimeFormat("uk-UA", {
+  day: "numeric",
+  month: "long",
+});
+
 export function formatSessionDate(iso: string): string {
-  return dateFmt.format(new Date(iso));
+  const date = new Date(iso);
+  // Поточний рік — без року, лише день і місяць.
+  const fmt = date.getFullYear() === new Date().getFullYear() ? dateFmtNoYear : dateFmtWithYear;
+  return fmt.format(date);
 }
