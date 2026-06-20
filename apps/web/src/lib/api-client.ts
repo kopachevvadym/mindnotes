@@ -5,11 +5,13 @@ import {
   sessionListSchema,
   contextDtoSchema,
   contextListSchema,
+  contextDetailSchema,
   thoughtDtoSchema,
   type SessionDto,
   type SessionDetail,
   type SessionListItem,
   type ContextDto,
+  type ContextDetail,
   type ThoughtDto,
   type CreateThoughtInput,
   type UpdateThoughtInput,
@@ -105,6 +107,10 @@ export const api = {
 
   getContexts(): Promise<ContextDto[]> {
     return request(`/contexts`, contextListSchema);
+  },
+
+  getContext(id: string): Promise<ContextDetail> {
+    return request(`/contexts/${id}`, contextDetailSchema);
   },
 
   createContext(input: CreateContextInput): Promise<ContextDto> {

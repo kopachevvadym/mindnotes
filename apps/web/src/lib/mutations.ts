@@ -1,8 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { ContextDto, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
+import type {
+  ContextDetail,
+  ContextDto,
+  SessionDetail,
+  SessionDto,
+  ThoughtDto,
+} from "@mindnotes/schema";
 import { api } from "./api-client";
-import { contextsQuery, sessionQuery, sessionsQuery } from "./queries";
+import { contextQuery, contextsQuery, sessionQuery, sessionsQuery } from "./queries";
 
 interface SessionCacheContext {
   previous: SessionDetail | undefined;
@@ -258,6 +264,40 @@ export function useRemoveThoughtFromContext(sessionId: string) {
               ),
             }
           : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+/**
+ * Прибирання думки з контексту на СТОРІНЦІ КОНТЕКСТУ. Той самий DELETE, що й у
+ * Синтезі, але оптимістично оновлює кеш сторінки контексту.
+ */
+export function useRemoveThoughtFromContextPage(contextId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = contextQuery(contextId);
+
+  return useMutation<void, Error, { thoughtId: string }, { previous: ContextDetail | undefined }>({
+    mutationFn: ({ thoughtId }) => api.removeThoughtFromContext(contextId, thoughtId),
+
+    onMutate: async ({ thoughtId }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<ContextDetail>(queryKey);
+
+      queryClient.setQueryData<ContextDetail>(queryKey, (old) =>
+        old ? { ...old, thoughts: old.thoughts.filter((t) => t.id !== thoughtId) } : old,
       );
 
       return { previous };

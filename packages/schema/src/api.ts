@@ -52,6 +52,17 @@ export const assignThoughtsInputSchema = z.object({
   thoughtIds: z.array(z.uuid()).min(1),
 });
 
+/** Думка на сторінці контексту — з джерелом (сесією). */
+export const contextThoughtDtoSchema = thoughtDtoSchema.extend({
+  sessionTitle: z.string().nullable(),
+});
+
+/** GET /contexts/:id */
+export const contextDetailSchema = z.object({
+  context: contextDtoSchema,
+  thoughts: z.array(contextThoughtDtoSchema),
+});
+
 /** Елемент списку сесій (GET /sessions) — з агрегатом кількості думок. */
 export const sessionListItemSchema = z.object({
   id: z.uuid(),
@@ -83,6 +94,8 @@ export type SessionDto = z.infer<typeof sessionDtoSchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
 export type SessionListItem = z.infer<typeof sessionListItemSchema>;
 export type ContextDto = z.infer<typeof contextDtoSchema>;
+export type ContextThoughtDto = z.infer<typeof contextThoughtDtoSchema>;
+export type ContextDetail = z.infer<typeof contextDetailSchema>;
 export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;
 export type UpdateThoughtInput = z.infer<typeof updateThoughtInputSchema>;
 export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>;

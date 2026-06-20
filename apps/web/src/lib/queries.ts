@@ -19,3 +19,9 @@ export const contextsQuery = () =>
     queryKey: ["contexts"],
     queryFn: () => api.getContexts(),
   });
+
+export const contextQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["context", id],
+    queryFn: () => api.getContext(id),
+  });

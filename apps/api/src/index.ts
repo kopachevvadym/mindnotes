@@ -11,6 +11,7 @@ import {
   sessionListSchema,
   contextDtoSchema,
   contextListSchema,
+  contextDetailSchema,
   createThoughtInputSchema,
   updateThoughtInputSchema,
   updateSessionInputSchema,
@@ -217,6 +218,45 @@ app.post("/contexts", async (c) => {
 
   const payload = contextDtoSchema.parse({ id: row!.id, name: row!.name, emoji: row!.emoji });
   return c.json(payload, 201);
+});
+
+// GET /contexts/:id → контекст + його думки з джерелом (сесією), created_at desc
+app.get("/contexts/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const [ctx] = await db.select().from(contexts).where(eq(contexts.id, id)).limit(1);
+  if (!ctx) {
+    return c.json({ error: "context_not_found" }, 404);
+  }
+
+  const rows = await db
+    .select({
+      id: thoughts.id,
+      sessionId: thoughts.sessionId,
+      body: thoughts.body,
+      archived: thoughts.archived,
+      createdAt: thoughts.createdAt,
+      sessionTitle: sessions.title,
+    })
+    .from(thoughtContexts)
+    .innerJoin(thoughts, eq(thoughts.id, thoughtContexts.thoughtId))
+    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
+    .where(eq(thoughtContexts.contextId, id))
+    .orderBy(desc(thoughts.createdAt));
+
+  const payload = contextDetailSchema.parse({
+    context: { id: ctx.id, name: ctx.name, emoji: ctx.emoji },
+    thoughts: rows.map((r) => ({
+      id: r.id,
+      sessionId: r.sessionId,
+      body: r.body,
+      archived: r.archived,
+      createdAt: r.createdAt.toISOString(),
+      sessionTitle: r.sessionTitle,
+    })),
+  });
+
+  return c.json(payload);
 });
 
 // POST /contexts/:id/thoughts → додає думки в контекст (ідемпотентно)
