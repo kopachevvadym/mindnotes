@@ -42,6 +42,20 @@ export function formatClockTime(iso: string): string {
   return clockFmt.format(new Date(iso));
 }
 
+const fullDateTimeFmt = new Intl.DateTimeFormat("uk-UA", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** Повний час для підказки, напр. «18 червня 2026 р., 23:10». */
+export function formatFullDateTime(iso: string): string {
+  return fullDateTimeFmt.format(new Date(iso));
+}
+
 /** Скільки повних хвилин минуло від запису (не менше 0). */
 export function minutesAgo(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));

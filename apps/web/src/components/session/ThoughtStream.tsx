@@ -8,7 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSetThoughtArchived } from "@/lib/mutations";
-import { formatClockTime, minutesAgo, relativeThoughtTime } from "@/lib/format";
+import {
+  formatClockTime,
+  formatFullDateTime,
+  minutesAgo,
+  relativeThoughtTime,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { SessionMode } from "./SessionHeader";
 
@@ -25,10 +30,10 @@ interface PauseRow {
   thought: SessionThoughtDto;
   showPause: boolean;
   pauseLabel: string;
-  /** Точний час (для title-підказки), напр. «14:19». */
-  time: string;
   /** Людський відносний підпис часу. */
   rel: string;
+  /** Повний час для title-підказки. */
+  fullTime: string;
 }
 
 interface ThoughtStreamProps {
@@ -87,8 +92,8 @@ export function ThoughtStream({
       thought,
       showPause,
       pauseLabel: showPause ? `· тиша ${gap} хв ·` : "",
-      time,
       rel: relativeThoughtTime(agoMin, time),
+      fullTime: formatFullDateTime(thought.createdAt),
     };
   });
 
@@ -97,7 +102,7 @@ export function ThoughtStream({
   if (isSynthesis) {
     return (
       <ol className="space-y-1">
-        {rows.map(({ thought, showPause, pauseLabel, time, rel }) => {
+        {rows.map(({ thought, showPause, pauseLabel, rel, fullTime }) => {
           const isMember = focusedContext ? thought.contextIds.includes(focusedContext.id) : false;
           const isSelected = selectedIds.has(thought.id);
 
@@ -109,7 +114,7 @@ export function ThoughtStream({
                   type="button"
                   onClick={() => onThoughtTap(thought)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-lg p-3 text-left transition-all",
+                    "group flex w-full items-start gap-3 rounded-lg p-3 text-left transition-all",
                     focusedContext
                       ? isMember
                         ? "bg-primary/10 hover:bg-primary/15"
@@ -146,7 +151,7 @@ export function ThoughtStream({
                     >
                       {thought.body}
                     </p>
-                    <ThoughtTime rel={rel} time={time} />
+                    <ThoughtTime rel={rel} title={fullTime} />
                   </div>
                 </button>
               </li>
@@ -160,14 +165,14 @@ export function ThoughtStream({
   return (
     <ol
       className={cn(
-        "space-y-7 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
+        "space-y-4 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
         dimmed ? "opacity-[0.7]" : "opacity-100",
       )}
     >
-      {rows.map(({ thought, showPause, pauseLabel, time, rel }) => (
+      {rows.map(({ thought, showPause, pauseLabel, rel, fullTime }) => (
         <Fragment key={thought.id}>
           {showPause ? <PauseMarker label={pauseLabel} /> : null}
-          <li className="flex items-start justify-between gap-3">
+          <li className="group flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p
                 className={cn(
@@ -179,7 +184,7 @@ export function ThoughtStream({
               >
                 {thought.body}
               </p>
-              <ThoughtTime rel={rel} time={time} />
+              <ThoughtTime rel={rel} title={fullTime} />
             </div>
 
             {/* Тиха дія — лише в меню «⋮» */}
@@ -207,10 +212,16 @@ export function ThoughtStream({
   );
 }
 
-/** Підпис часу під думкою: відносний рядок, точний час — у title-підказці. */
-function ThoughtTime({ rel, time }: { rel: string; time: string }) {
+/**
+ * Підпис часу під думкою. Прихований за замовчуванням, проявляється при наведенні
+ * на думку; повний час — у title-підказці (видно при наведенні на сам підпис).
+ */
+function ThoughtTime({ rel, title }: { rel: string; title: string }) {
   return (
-    <p className="mt-1 font-mono text-[11px] tracking-wide text-muted-foreground/60" title={time}>
+    <p
+      title={title}
+      className="mt-1 font-mono text-[11px] tracking-wide text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 motion-reduce:transition-none"
+    >
       {rel}
     </p>
   );
