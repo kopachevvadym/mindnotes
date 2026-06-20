@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import type { ThoughtDto } from "@mindnotes/schema";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +9,19 @@ interface ThoughtStreamProps {
 }
 
 export function ThoughtStream({ thoughts, dimmed = false }: ThoughtStreamProps) {
+  // Коли зʼявляється нова думка — доскролюємо до останньої (над баром захоплення).
+  const prevCount = useRef(thoughts.length);
+  useLayoutEffect(() => {
+    if (thoughts.length > prevCount.current) {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+    }
+    prevCount.current = thoughts.length;
+  }, [thoughts.length]);
+
   if (thoughts.length === 0) {
     return (
       <p className="py-16 text-center font-serif text-lg italic text-muted-foreground">
