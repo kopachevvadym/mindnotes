@@ -21,10 +21,35 @@ export const sessionDtoSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
 });
 
+/** Думка в межах сесії — з її контекстами (для підсвічування в Синтезі). */
+export const sessionThoughtDtoSchema = thoughtDtoSchema.extend({
+  contextIds: z.array(z.uuid()),
+});
+
 /** GET /sessions/:id */
 export const sessionDetailSchema = z.object({
   session: sessionDtoSchema,
-  thoughts: z.array(thoughtDtoSchema),
+  thoughts: z.array(sessionThoughtDtoSchema),
+});
+
+/** Контекст для списку/пікера. */
+export const contextDtoSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  emoji: z.string(),
+});
+
+export const contextListSchema = z.array(contextDtoSchema);
+
+/** POST /contexts — тіло запиту. */
+export const createContextInputSchema = z.object({
+  name: z.string().trim().min(1),
+  emoji: z.string().trim().min(1),
+});
+
+/** POST /contexts/:id/thoughts — тіло запиту (ідемпотентно). */
+export const assignThoughtsInputSchema = z.object({
+  thoughtIds: z.array(z.uuid()).min(1),
 });
 
 /** Елемент списку сесій (GET /sessions) — з агрегатом кількості думок. */
@@ -53,9 +78,13 @@ export const updateThoughtInputSchema = z.object({
 });
 
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
+export type SessionThoughtDto = z.infer<typeof sessionThoughtDtoSchema>;
 export type SessionDto = z.infer<typeof sessionDtoSchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
 export type SessionListItem = z.infer<typeof sessionListItemSchema>;
+export type ContextDto = z.infer<typeof contextDtoSchema>;
 export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;
 export type UpdateThoughtInput = z.infer<typeof updateThoughtInputSchema>;
 export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>;
+export type CreateContextInput = z.infer<typeof createContextInputSchema>;
+export type AssignThoughtsInput = z.infer<typeof assignThoughtsInputSchema>;
