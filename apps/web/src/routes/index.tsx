@@ -1,11 +1,8 @@
-import { createRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { SEED_SESSION_ID } from "@mindnotes/schema";
-import { rootRoute } from "./root";
 
 /** Корінь редіректить на засіяну сесію. */
-export const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
+export const Route = createFileRoute("/")({
   beforeLoad: () => {
     throw redirect({
       to: "/sessions/$sessionId",
