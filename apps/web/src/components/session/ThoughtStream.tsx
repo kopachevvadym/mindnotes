@@ -112,7 +112,11 @@ export function ThoughtStream({
               <li>
                 <button
                   type="button"
-                  onClick={() => onThoughtTap(thought)}
+                  onClick={() => {
+                    // Якщо користувач виділяв текст — не перемикати вибір думки.
+                    if (window.getSelection()?.toString()) return;
+                    onThoughtTap(thought);
+                  }}
                   className={cn(
                     "group flex w-full items-start gap-3 rounded-lg p-3 text-left transition-all",
                     focusedContext
@@ -143,7 +147,7 @@ export function ThoughtStream({
                   <div className="min-w-0 flex-1">
                     <p
                       className={cn(
-                        "font-serif text-lg leading-relaxed",
+                        "select-text font-serif text-lg leading-relaxed",
                         thought.archived
                           ? "whitespace-normal italic text-muted-foreground/70"
                           : "whitespace-pre-wrap text-foreground",
@@ -176,7 +180,7 @@ export function ThoughtStream({
             <div className="min-w-0 flex-1">
               <p
                 className={cn(
-                  "font-serif text-lg leading-relaxed transition-colors",
+                  "select-text font-serif text-lg leading-relaxed transition-colors",
                   thought.archived
                     ? "whitespace-normal italic text-muted-foreground/70"
                     : "whitespace-pre-wrap text-foreground",
