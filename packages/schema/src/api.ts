@@ -75,6 +75,11 @@ export const createIdeaInputSchema = z.object({
   seedThoughtId: z.uuid(),
 });
 
+/** POST /ideas/:id/thoughts — тіло запиту: наявна думка, яку втягуємо в наявну ідею. */
+export const addThoughtToIdeaInputSchema = z.object({
+  thoughtId: z.uuid(),
+});
+
 /** PATCH /ideas/:id — тіло запиту. Теза ніколи не обовʼязкова (може бути null). */
 export const updateIdeaInputSchema = z.object({
   thesis: z.string().nullable(),
@@ -109,4 +114,5 @@ export type IdeaThoughtDto = z.infer<typeof ideaThoughtDtoSchema>;
 export type IdeaDetail = z.infer<typeof ideaDetailSchema>;
 export type IdeaListItem = z.infer<typeof ideaListItemSchema>;
 export type CreateIdeaInput = z.infer<typeof createIdeaInputSchema>;
+export type AddThoughtToIdeaInput = z.infer<typeof addThoughtToIdeaInputSchema>;
 export type UpdateIdeaInput = z.infer<typeof updateIdeaInputSchema>;

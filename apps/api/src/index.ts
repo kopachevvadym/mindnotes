@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import {
   sessions,
   thoughts,
@@ -13,6 +13,7 @@ import {
   updateThoughtInputSchema,
   updateSessionInputSchema,
   createIdeaInputSchema,
+  addThoughtToIdeaInputSchema,
   updateIdeaInputSchema,
   ideaDtoSchema,
   ideaDetailSchema,
@@ -223,6 +224,39 @@ app.delete("/sessions/:id", async (c) => {
   return c.body(null, 204);
 });
 
+/** Ідея + її думки з джерелом (сесією), created_at desc. null, якщо ідеї нема. */
+async function loadIdeaDetail(ideaId: string) {
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
+  if (!idea) return null;
+
+  const rows = await db
+    .select({
+      id: thoughts.id,
+      sessionId: thoughts.sessionId,
+      body: thoughts.body,
+      archived: thoughts.archived,
+      createdAt: thoughts.createdAt,
+      sessionTitle: sessions.title,
+    })
+    .from(ideaThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
+    .where(eq(ideaThoughts.ideaId, ideaId))
+    .orderBy(desc(thoughts.createdAt));
+
+  return ideaDetailSchema.parse({
+    idea: serializeIdea(idea),
+    thoughts: rows.map((r) => ({
+      id: r.id,
+      sessionId: r.sessionId,
+      body: r.body,
+      archived: r.archived,
+      createdAt: r.createdAt.toISOString(),
+      sessionTitle: r.sessionTitle,
+    })),
+  });
+}
+
 // POST /ideas → народжує ідею (thesis=null) з думки-насінини, лінкує її, повертає ідею + думки
 app.post("/ideas", async (c) => {
   const json = await c.req.json().catch(() => null);
@@ -302,39 +336,10 @@ app.get("/ideas", async (c) => {
 
 // GET /ideas/:id → ідея + її думки з джерелом (сесією), created_at desc
 app.get("/ideas/:id", async (c) => {
-  const id = c.req.param("id");
-
-  const [idea] = await db.select().from(ideas).where(eq(ideas.id, id)).limit(1);
-  if (!idea) {
+  const payload = await loadIdeaDetail(c.req.param("id"));
+  if (!payload) {
     return c.json({ error: "idea_not_found" }, 404);
   }
-
-  const rows = await db
-    .select({
-      id: thoughts.id,
-      sessionId: thoughts.sessionId,
-      body: thoughts.body,
-      archived: thoughts.archived,
-      createdAt: thoughts.createdAt,
-      sessionTitle: sessions.title,
-    })
-    .from(ideaThoughts)
-    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
-    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
-    .where(eq(ideaThoughts.ideaId, id))
-    .orderBy(desc(thoughts.createdAt));
-
-  const payload = ideaDetailSchema.parse({
-    idea: serializeIdea(idea),
-    thoughts: rows.map((r) => ({
-      id: r.id,
-      sessionId: r.sessionId,
-      body: r.body,
-      archived: r.archived,
-      createdAt: r.createdAt.toISOString(),
-      sessionTitle: r.sessionTitle,
-    })),
-  });
   return c.json(payload);
 });
 
@@ -357,6 +362,69 @@ app.patch("/ideas/:id", async (c) => {
 
   const payload = ideaDtoSchema.parse(serializeIdea(row));
   return c.json(payload);
+});
+
+// POST /ideas/:id/thoughts → втягнути НАЯВНУ думку в НАЯВНУ ідею (ідемпотентно), повернути ідею
+app.post("/ideas/:id/thoughts", async (c) => {
+  const ideaId = c.req.param("id");
+
+  const json = await c.req.json().catch(() => null);
+  const parsed = addThoughtToIdeaInputSchema.safeParse(json);
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
+  if (!idea) {
+    return c.json({ error: "idea_not_found" }, 404);
+  }
+
+  const [thought] = await db
+    .select()
+    .from(thoughts)
+    .where(eq(thoughts.id, parsed.data.thoughtId))
+    .limit(1);
+  if (!thought) {
+    return c.json({ error: "thought_not_found" }, 404);
+  }
+
+  // Ідемпотентно: повторне втягування тієї ж думки — не дубль, не помилка.
+  await db
+    .insert(ideaThoughts)
+    .values({ ideaId, thoughtId: parsed.data.thoughtId })
+    .onConflictDoNothing();
+
+  const payload = await loadIdeaDetail(ideaId);
+  return c.json(payload!);
+});
+
+// DELETE /ideas/:id/thoughts/:thoughtId → відчепити думку від ідеї (саму думку НЕ видаляти)
+app.delete("/ideas/:id/thoughts/:thoughtId", async (c) => {
+  const ideaId = c.req.param("id");
+  const thoughtId = c.req.param("thoughtId");
+
+  await db
+    .delete(ideaThoughts)
+    .where(and(eq(ideaThoughts.ideaId, ideaId), eq(ideaThoughts.thoughtId, thoughtId)));
+
+  return c.body(null, 204);
+});
+
+// DELETE /ideas/:id → видалити ідею: спершу лінки idea_thought, тоді саму ідею. Думки лишаються.
+app.delete("/ideas/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const [existing] = await db.select().from(ideas).where(eq(ideas.id, id)).limit(1);
+  if (!existing) {
+    return c.json({ error: "idea_not_found" }, 404);
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(ideaThoughts).where(eq(ideaThoughts.ideaId, id));
+    await tx.delete(ideas).where(eq(ideas.id, id));
+  });
+
+  return c.body(null, 204);
 });
 
 export default {

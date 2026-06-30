@@ -305,3 +305,97 @@ export function useUpdateIdea(ideaId: string) {
     },
   });
 }
+
+/**
+ * Втягування НАЯВНОЇ думки в НАЯВНУ ідею. Оптимістично: якщо думка ще без ідеї —
+ * ставимо ideaId (зʼявляється мітка-двері). onSettled — реконсайл сесії, ідеї та списку.
+ */
+export function useAddThoughtToIdea(sessionId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = sessionQuery(sessionId);
+
+  return useMutation<IdeaDetail, Error, { ideaId: string; thoughtId: string }, SessionCacheContext>({
+    mutationFn: ({ ideaId, thoughtId }) => api.addThoughtToIdea(ideaId, { thoughtId }),
+
+    onMutate: async ({ ideaId, thoughtId }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
+
+      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
+        old
+          ? {
+              ...old,
+              thoughts: old.thoughts.map((t) =>
+                t.id === thoughtId ? { ...t, ideaId: t.ideaId ?? ideaId } : t,
+              ),
+            }
+          : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: (_data, _error, { ideaId }) => {
+      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: ideaQuery(ideaId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
+    },
+  });
+}
+
+/**
+ * Відчеплення думки від ідеї (сама думка лишається в потоці). Оптимістично прибираємо
+ * думку з кешу сторінки ідеї. onError — відкат; onSettled — реконсайл ідеї та списку.
+ */
+export function useRemoveThoughtFromIdea(ideaId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = ideaQuery(ideaId);
+
+  return useMutation<void, Error, { thoughtId: string }, { previous: IdeaDetail | undefined }>({
+    mutationFn: ({ thoughtId }) => api.removeThoughtFromIdea(ideaId, thoughtId),
+
+    onMutate: async ({ thoughtId }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<IdeaDetail>(queryKey);
+
+      queryClient.setQueryData<IdeaDetail>(queryKey, (old) =>
+        old ? { ...old, thoughts: old.thoughts.filter((t) => t.id !== thoughtId) } : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
+    },
+  });
+}
+
+/**
+ * Видалення ідеї (думки лишаються в потоці). Після успіху — навігація в список ідей.
+ */
+export function useDeleteIdea() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => api.deleteIdea(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
+      void navigate({ to: "/ideas" });
+    },
+  });
+}

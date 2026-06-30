@@ -18,6 +18,7 @@ import {
   type IdeaDetail,
   type IdeaListItem,
   type CreateIdeaInput,
+  type AddThoughtToIdeaInput,
   type UpdateIdeaInput,
 } from "@mindnotes/schema";
 
@@ -138,5 +139,36 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
+  },
+
+  addThoughtToIdea(ideaId: string, input: AddThoughtToIdeaInput): Promise<IdeaDetail> {
+    return request(`/ideas/${ideaId}/thoughts`, ideaDetailSchema, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  },
+
+  async removeThoughtFromIdea(ideaId: string, thoughtId: string): Promise<void> {
+    const res = await fetch(`${baseUrl}/ideas/${ideaId}/thoughts/${thoughtId}`, {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      throw new ApiError(
+        `Запит DELETE /ideas/${ideaId}/thoughts/${thoughtId} повернув ${res.status}`,
+        res.status,
+      );
+    }
+  },
+
+  async deleteIdea(id: string): Promise<void> {
+    const res = await fetch(`${baseUrl}/ideas/${id}`, {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      throw new ApiError(`Запит DELETE /ideas/${id} повернув ${res.status}`, res.status);
+    }
   },
 };

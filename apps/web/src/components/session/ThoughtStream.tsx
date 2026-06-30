@@ -28,6 +28,7 @@ import {
   relativeThoughtTime,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { AddToIdeaPicker } from "./AddToIdeaPicker";
 
 /** Поріг «відчутної» паузи між сусідніми думками (хвилини доби). */
 const PAUSE_THRESHOLD_MIN = 15;
@@ -66,6 +67,8 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
   const [draft, setDraft] = useState("");
   const editRef = useRef<HTMLTextAreaElement>(null);
   const skipBlur = useRef(false);
+  // Пікер «у наявну ідею»: id думки, яку додаємо (null = закрито).
+  const [pickerThoughtId, setPickerThoughtId] = useState<string | null>(null);
 
   // Коли зʼявляється нова думка — доскролюємо до останньої (над баром захоплення).
   const prevCount = useRef(thoughts.length);
@@ -157,6 +160,7 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
   });
 
   return (
+    <>
     <ol
       className={cn(
         "space-y-4 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
@@ -213,7 +217,10 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => createIdea.mutate({ seedThoughtId: thought.id })}>
-                      Створити ідею
+                      Нова ідея
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setPickerThoughtId(thought.id)}>
+                      У наявну ідею…
                     </DropdownMenuItem>
                     {editable ? (
                       <DropdownMenuItem onSelect={() => startEdit(thought)}>Редагувати</DropdownMenuItem>
@@ -241,6 +248,12 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
         );
       })}
     </ol>
+    <AddToIdeaPicker
+      sessionId={sessionId}
+      thoughtId={pickerThoughtId}
+      onClose={() => setPickerThoughtId(null)}
+    />
+    </>
   );
 }
 

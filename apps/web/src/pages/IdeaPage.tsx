@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import * as Dialog from "@radix-ui/react-dialog";
+import { MoreVertical, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ideaQuery } from "@/lib/queries";
-import { useUpdateIdea } from "@/lib/mutations";
+import { useDeleteIdea, useRemoveThoughtFromIdea, useUpdateIdea } from "@/lib/mutations";
 import { pluralThoughts } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +20,7 @@ interface IdeaPageProps {
 
 export function IdeaPage({ ideaId }: IdeaPageProps) {
   const { data, isPending, isError, error } = useQuery(ideaQuery(ideaId));
+  const removeThought = useRemoveThoughtFromIdea(ideaId);
 
   if (isPending) {
     return <StatusNote>Завантаження…</StatusNote>;
@@ -26,8 +35,13 @@ export function IdeaPage({ ideaId }: IdeaPageProps) {
   return (
     <div className="flex flex-1 flex-col pb-16">
       <header className="space-y-4 pt-8 pb-2">
-        {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. «Назад» — у каркасі. */}
-        <ThesisLede ideaId={ideaId} thesis={idea.thesis} />
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. «Назад» — у каркасі. */}
+            <ThesisLede ideaId={ideaId} thesis={idea.thesis} />
+          </div>
+          <IdeaMenu ideaId={ideaId} />
+        </div>
 
         <p className="font-sans text-sm text-muted-foreground">{pluralThoughts(thoughts.length)}</p>
       </header>
@@ -37,29 +51,98 @@ export function IdeaPage({ ideaId }: IdeaPageProps) {
       ) : (
         <ol className="mt-4 space-y-7">
           {thoughts.map((thought) => (
-            <li key={thought.id} className="min-w-0">
-              <p
-                className={cn(
-                  "font-serif text-lg leading-relaxed",
-                  thought.archived
-                    ? "whitespace-normal italic text-muted-foreground/70"
-                    : "whitespace-pre-wrap text-foreground",
-                )}
+            <li key={thought.id} className="group flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p
+                  className={cn(
+                    "font-serif text-lg leading-relaxed",
+                    thought.archived
+                      ? "whitespace-normal italic text-muted-foreground/70"
+                      : "whitespace-pre-wrap text-foreground",
+                  )}
+                >
+                  {thought.body}
+                </p>
+                <Link
+                  to="/sessions/$sessionId"
+                  params={{ sessionId: thought.sessionId }}
+                  className="mt-1 inline-block font-sans text-sm text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                >
+                  з сесії „{thought.sessionTitle ?? "Нова сесія"}“
+                </Link>
+              </div>
+
+              {/* Тиха дія «відчепити» — думка лишається в потоці. */}
+              <button
+                type="button"
+                onClick={() => removeThought.mutate({ thoughtId: thought.id })}
+                aria-label="Відчепити від ідеї"
+                title="Відчепити від ідеї"
+                className="mt-0.5 shrink-0 rounded-md p-1 text-transparent transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:text-muted-foreground/40"
               >
-                {thought.body}
-              </p>
-              <Link
-                to="/sessions/$sessionId"
-                params={{ sessionId: thought.sessionId }}
-                className="mt-1 inline-block font-sans text-sm text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
-              >
-                з сесії „{thought.sessionTitle ?? "Нова сесія"}“
-              </Link>
+                <X className="size-4" />
+              </button>
             </li>
           ))}
         </ol>
       )}
     </div>
+  );
+}
+
+/** Меню ідеї: видалення з простим підтвердженням. Думки при цьому лишаються в потоці. */
+function IdeaMenu({ ideaId }: { ideaId: string }) {
+  const [confirm, setConfirm] = useState(false);
+  const deleteIdea = useDeleteIdea();
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Дії з ідеєю"
+          className="mt-1 shrink-0 rounded-md p-1 text-muted-foreground/40 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
+        >
+          <MoreVertical className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onSelect={() => setConfirm(true)}
+            className="text-red-700 focus:text-red-700"
+          >
+            Видалити ідею
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog.Root open={confirm} onOpenChange={setConfirm}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-reading rounded-t-2xl border border-border bg-paper p-4 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom">
+            <Dialog.Title className="font-serif text-xl text-foreground">Видалити ідею?</Dialog.Title>
+            <Dialog.Description className="mt-1 font-sans text-sm text-muted-foreground">
+              Думки лишаться в потоці — зникне лише ця ідея.
+            </Dialog.Description>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirm(false)}
+                className="rounded-md px-4 py-2 font-sans text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteIdea.mutate(ideaId)}
+                disabled={deleteIdea.isPending}
+                className="rounded-md px-4 py-2 font-sans text-sm font-medium text-red-700 transition-colors hover:bg-red-700/10 disabled:opacity-50"
+              >
+                Видалити
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </>
   );
 }
 
