@@ -8,11 +8,7 @@ export function IdeasListPage() {
   const { data, isPending, isError, error } = useQuery(ideasQuery());
 
   return (
-    <div className="flex flex-1 flex-col pb-16">
-      <header className="pb-2 pt-10">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">Ідеї</h1>
-      </header>
-
+    <div className="flex flex-1 flex-col pb-16 pt-4">
       {isPending ? (
         <StatusNote>Завантаження…</StatusNote>
       ) : isError ? (

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
 import { ideaQuery } from "@/lib/queries";
 import { useUpdateIdea } from "@/lib/mutations";
 import { pluralThoughts } from "@/lib/format";
@@ -27,15 +26,7 @@ export function IdeaPage({ ideaId }: IdeaPageProps) {
   return (
     <div className="flex flex-1 flex-col pb-16">
       <header className="space-y-4 pt-8 pb-2">
-        <Link
-          to="/ideas"
-          className="inline-flex items-center gap-1 font-sans text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          ідеї
-        </Link>
-
-        {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. */}
+        {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. «Назад» — у каркасі. */}
         <ThesisLede ideaId={ideaId} thesis={idea.thesis} />
 
         <p className="font-sans text-sm text-muted-foreground">{pluralThoughts(thoughts.length)}</p>

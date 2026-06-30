@@ -12,8 +12,7 @@ export function SessionsListPage() {
 
   return (
     <div className="flex flex-1 flex-col pb-16">
-      <header className="flex items-center justify-between gap-4 pb-2 pt-10">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">Сесії</h1>
+      <header className="flex items-center justify-end pb-2 pt-4">
         <button
           type="button"
           onClick={() => createSession.mutate()}
