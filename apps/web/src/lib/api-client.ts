@@ -4,6 +4,7 @@ import {
   sessionDetailSchema,
   sessionListSchema,
   thoughtDtoSchema,
+  ideaDetailSchema,
   type SessionDto,
   type SessionDetail,
   type SessionListItem,
@@ -11,6 +12,8 @@ import {
   type CreateThoughtInput,
   type UpdateThoughtInput,
   type UpdateSessionInput,
+  type IdeaDetail,
+  type CreateIdeaInput,
 } from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -93,6 +96,24 @@ export const api = {
   updateThought(id: string, input: UpdateThoughtInput): Promise<ThoughtDto> {
     return request(`/thoughts/${id}`, thoughtDtoSchema, {
       method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  },
+
+  async deleteThought(id: string): Promise<void> {
+    const res = await fetch(`${baseUrl}/thoughts/${id}`, {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      throw new ApiError(`Запит DELETE /thoughts/${id} повернув ${res.status}`, res.status);
+    }
+  },
+
+  createIdea(input: CreateIdeaInput): Promise<IdeaDetail> {
+    return request(`/ideas`, ideaDetailSchema, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });

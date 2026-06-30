@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
+import type { IdeaDetail, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
 import { api } from "./api-client";
 import { sessionQuery, sessionsQuery } from "./queries";
 
@@ -30,6 +30,7 @@ export function useCreateThought(sessionId: string) {
         body,
         archived: false,
         createdAt: new Date().toISOString(),
+        ideaCount: 0,
       };
 
       queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
@@ -148,6 +149,120 @@ export function useSetThoughtArchived(sessionId: string) {
           ? {
               ...old,
               thoughts: old.thoughts.map((t) => (t.id === id ? { ...t, archived } : t)),
+            }
+          : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+/**
+ * Редагування тіла думки (лише в межах вікна) з оптимістичним оновленням у кеші сесії.
+ * onError — відкат; onSettled — реконсайл.
+ */
+export function useEditThought(sessionId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = sessionQuery(sessionId);
+
+  return useMutation<ThoughtDto, Error, { id: string; body: string }, SessionCacheContext>({
+    mutationFn: ({ id, body }) => api.updateThought(id, { body }),
+
+    onMutate: async ({ id, body }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
+
+      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
+        old
+          ? {
+              ...old,
+              thoughts: old.thoughts.map((t) => (t.id === id ? { ...t, body } : t)),
+            }
+          : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+/**
+ * Видалення думки (лише в межах вікна) з оптимістичним прибиранням із кешу сесії.
+ * onError — відкат; onSettled — реконсайл.
+ */
+export function useDeleteThought(sessionId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = sessionQuery(sessionId);
+
+  return useMutation<void, Error, string, SessionCacheContext>({
+    mutationFn: (id) => api.deleteThought(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
+
+      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
+        old ? { ...old, thoughts: old.thoughts.filter((t) => t.id !== id) } : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+/**
+ * Народження ідеї з думки-насінини. Оптимістично збільшуємо лічильник ідей цієї
+ * думки — миттєво зʼявляється мітка «в ідеї». onError — відкат; onSettled — реконсайл.
+ */
+export function useCreateIdea(sessionId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = sessionQuery(sessionId);
+
+  return useMutation<IdeaDetail, Error, { seedThoughtId: string }, SessionCacheContext>({
+    mutationFn: ({ seedThoughtId }) => api.createIdea({ seedThoughtId }),
+
+    onMutate: async ({ seedThoughtId }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
+
+      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
+        old
+          ? {
+              ...old,
+              thoughts: old.thoughts.map((t) =>
+                t.id === seedThoughtId ? { ...t, ideaCount: t.ideaCount + 1 } : t,
+              ),
             }
           : old,
       );

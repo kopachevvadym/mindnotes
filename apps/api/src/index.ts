@@ -4,17 +4,28 @@ import { asc, count, desc, eq } from "drizzle-orm";
 import {
   sessions,
   thoughts,
+  ideas,
+  ideaThoughts,
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
   createThoughtInputSchema,
   updateThoughtInputSchema,
   updateSessionInputSchema,
+  createIdeaInputSchema,
+  ideaDetailSchema,
   thoughtDtoSchema,
+  THOUGHT_EDIT_WINDOW_MIN,
 } from "@mindnotes/schema";
 import { db } from "./db";
 import { env } from "./env";
-import { serializeSession, serializeThought } from "./serialize";
+import { serializeSession, serializeThought, serializeIdea } from "./serialize";
+
+/** Вікно (від створення), у якому думку ще можна редагувати/видалити. */
+const EDIT_WINDOW_MS = THOUGHT_EDIT_WINDOW_MIN * 60_000;
+function withinEditWindow(createdAt: Date): boolean {
+  return Date.now() - createdAt.getTime() <= EDIT_WINDOW_MS;
+}
 
 const app = new Hono();
 
@@ -76,10 +87,26 @@ app.get("/sessions/:id", async (c) => {
     .where(eq(thoughts.sessionId, id))
     .orderBy(asc(thoughts.createdAt));
 
+  // Скільки ідей живить кожна думка цієї сесії → мапа thoughtId → count.
+  const ideaCounts = await db
+    .select({ thoughtId: ideaThoughts.thoughtId, ideas: count(ideaThoughts.ideaId) })
+    .from(ideaThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .where(eq(thoughts.sessionId, id))
+    .groupBy(ideaThoughts.thoughtId);
+
+  const ideaCountByThought = new Map<string, number>();
+  for (const row of ideaCounts) {
+    ideaCountByThought.set(row.thoughtId, Number(row.ideas));
+  }
+
   // Валідуємо відповідь спільною zod-схемою перед віддачею.
   const payload = sessionDetailSchema.parse({
     session: serializeSession(session),
-    thoughts: rows.map((row) => serializeThought(row)),
+    thoughts: rows.map((row) => ({
+      ...serializeThought(row),
+      ideaCount: ideaCountByThought.get(row.id) ?? 0,
+    })),
   });
 
   return c.json(payload);
@@ -109,7 +136,7 @@ app.post("/sessions/:id/thoughts", async (c) => {
   return c.json(payload, 201);
 });
 
-// PATCH /thoughts/:id → архівувати/розархівувати, повертає оновлену думку
+// PATCH /thoughts/:id → архівування (будь-коли) або редагування тіла (лише в межах вікна)
 app.patch("/thoughts/:id", async (c) => {
   const id = c.req.param("id");
 
@@ -119,18 +146,40 @@ app.patch("/thoughts/:id", async (c) => {
     return c.json({ error: "invalid_body" }, 400);
   }
 
-  const [row] = await db
-    .update(thoughts)
-    .set({ archived: parsed.data.archived })
-    .where(eq(thoughts.id, id))
-    .returning();
-
-  if (!row) {
+  const [existing] = await db.select().from(thoughts).where(eq(thoughts.id, id)).limit(1);
+  if (!existing) {
     return c.json({ error: "thought_not_found" }, 404);
   }
 
-  const payload = thoughtDtoSchema.parse(serializeThought(row));
+  // Редагування тіла — лише поки не вийшло вікно; архівування — без обмежень.
+  if ("body" in parsed.data && !withinEditWindow(existing.createdAt)) {
+    return c.json({ error: "edit_window_closed" }, 403);
+  }
+
+  const [row] = await db
+    .update(thoughts)
+    .set("body" in parsed.data ? { body: parsed.data.body } : { archived: parsed.data.archived })
+    .where(eq(thoughts.id, id))
+    .returning();
+
+  const payload = thoughtDtoSchema.parse(serializeThought(row!));
   return c.json(payload);
+});
+
+// DELETE /thoughts/:id → видаляє думку (лише в межах вікна); лінки idea_thought прибирає cascade
+app.delete("/thoughts/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const [existing] = await db.select().from(thoughts).where(eq(thoughts.id, id)).limit(1);
+  if (!existing) {
+    return c.json({ error: "thought_not_found" }, 404);
+  }
+  if (!withinEditWindow(existing.createdAt)) {
+    return c.json({ error: "delete_window_closed" }, 403);
+  }
+
+  await db.delete(thoughts).where(eq(thoughts.id, id));
+  return c.body(null, 204);
 });
 
 // PATCH /sessions/:id → перейменування (title може бути null), повертає оновлену
@@ -167,6 +216,43 @@ app.delete("/sessions/:id", async (c) => {
   }
 
   return c.body(null, 204);
+});
+
+// POST /ideas → народжує ідею (thesis=null) з думки-насінини, лінкує її, повертає ідею + думки
+app.post("/ideas", async (c) => {
+  const json = await c.req.json().catch(() => null);
+  const parsed = createIdeaInputSchema.safeParse(json);
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  const { seedThoughtId } = parsed.data;
+
+  const [seed] = await db.select().from(thoughts).where(eq(thoughts.id, seedThoughtId)).limit(1);
+  if (!seed) {
+    return c.json({ error: "thought_not_found" }, 404);
+  }
+
+  // Створення ідеї + лінк думки-насінини — в одній транзакції.
+  const idea = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(ideas).values({}).returning();
+    await tx.insert(ideaThoughts).values({ ideaId: created!.id, thoughtId: seedThoughtId });
+    return created!;
+  });
+
+  const linked = await db
+    .select()
+    .from(thoughts)
+    .innerJoin(ideaThoughts, eq(ideaThoughts.thoughtId, thoughts.id))
+    .where(eq(ideaThoughts.ideaId, idea.id))
+    .orderBy(asc(thoughts.createdAt));
+
+  const payload = ideaDetailSchema.parse({
+    idea: serializeIdea(idea),
+    thoughts: linked.map((r) => serializeThought(r.thought)),
+  });
+
+  return c.json(payload, 201);
 });
 
 export default {
