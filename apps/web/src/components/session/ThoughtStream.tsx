@@ -213,7 +213,7 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => createIdea.mutate({ seedThoughtId: thought.id })}>
-                      → в ідею
+                      Створити ідею
                     </DropdownMenuItem>
                     {editable ? (
                       <DropdownMenuItem onSelect={() => startEdit(thought)}>Редагувати</DropdownMenuItem>
@@ -254,7 +254,7 @@ function IdeaMark({ ideaId }: { ideaId: string }) {
         className="inline-flex items-center gap-1 font-sans text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
       >
         <Lightbulb className="size-3" aria-hidden />
-        в ідеї
+        перейти в ідеї
       </Link>
     </div>
   );

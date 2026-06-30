@@ -33,20 +33,16 @@ const navIdle = "text-muted-foreground hover:text-foreground";
 function AppNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const section = pathname.startsWith("/ideas") ? "ideas" : "sessions";
-  const isDetail =
-    pathname.startsWith("/sessions/") || (pathname.startsWith("/ideas/") && pathname !== "/ideas");
 
   return (
     <nav className="flex items-center gap-3 pt-6 pb-1 font-sans text-sm">
       <Link to="/" className={cn(navBase, section === "sessions" ? navActive : navIdle)}>
-        {isDetail && section === "sessions" ? <ArrowLeft className="size-3.5" aria-hidden /> : null}
         Сесії
       </Link>
       <span aria-hidden className="text-muted-foreground/40">
         ·
       </span>
       <Link to="/ideas" className={cn(navBase, section === "ideas" ? navActive : navIdle)}>
-        {isDetail && section === "ideas" ? <ArrowLeft className="size-3.5" aria-hidden /> : null}
         Ідеї
       </Link>
     </nav>
