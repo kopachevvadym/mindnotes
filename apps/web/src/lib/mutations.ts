@@ -1,14 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type {
-  ContextDetail,
-  ContextDto,
-  SessionDetail,
-  SessionDto,
-  ThoughtDto,
-} from "@mindnotes/schema";
+import type { SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
 import { api } from "./api-client";
-import { contextQuery, contextsQuery, sessionQuery, sessionsQuery } from "./queries";
+import { sessionQuery, sessionsQuery } from "./queries";
 
 interface SessionCacheContext {
   previous: SessionDetail | undefined;
@@ -36,7 +30,6 @@ export function useCreateThought(sessionId: string) {
         body,
         archived: false,
         createdAt: new Date().toISOString(),
-        contextIds: [],
       };
 
       queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
@@ -157,147 +150,6 @@ export function useSetThoughtArchived(sessionId: string) {
               thoughts: old.thoughts.map((t) => (t.id === id ? { ...t, archived } : t)),
             }
           : old,
-      );
-
-      return { previous };
-    },
-
-    onError: (_error, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKey, context.previous);
-      }
-    },
-
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey });
-    },
-  });
-}
-
-/** Створення контексту (інвалідує список контекстів). Повертає створений контекст. */
-export function useCreateContext() {
-  const queryClient = useQueryClient();
-
-  return useMutation<ContextDto, Error, { name: string; emoji: string }>({
-    mutationFn: (input) => api.createContext(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
-    },
-  });
-}
-
-/**
- * Призначення вибраних думок у контекст (bulk) з оптимістичним додаванням contextId
- * у кеш сесії. onError — відкат; onSettled — реконсайл.
- */
-export function useAssignThoughts(sessionId: string) {
-  const queryClient = useQueryClient();
-  const { queryKey } = sessionQuery(sessionId);
-
-  return useMutation<
-    void,
-    Error,
-    { contextId: string; thoughtIds: string[] },
-    SessionCacheContext
-  >({
-    mutationFn: ({ contextId, thoughtIds }) => api.assignThoughts(contextId, { thoughtIds }),
-
-    onMutate: async ({ contextId, thoughtIds }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
-
-      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
-        old
-          ? {
-              ...old,
-              thoughts: old.thoughts.map((t) =>
-                thoughtIds.includes(t.id) && !t.contextIds.includes(contextId)
-                  ? { ...t, contextIds: [...t.contextIds, contextId] }
-                  : t,
-              ),
-            }
-          : old,
-      );
-
-      return { previous };
-    },
-
-    onError: (_error, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKey, context.previous);
-      }
-    },
-
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey });
-    },
-  });
-}
-
-/**
- * Прибирання думки з контексту з оптимістичним видаленням contextId у кеші сесії.
- */
-export function useRemoveThoughtFromContext(sessionId: string) {
-  const queryClient = useQueryClient();
-  const { queryKey } = sessionQuery(sessionId);
-
-  return useMutation<
-    void,
-    Error,
-    { contextId: string; thoughtId: string },
-    SessionCacheContext
-  >({
-    mutationFn: ({ contextId, thoughtId }) => api.removeThoughtFromContext(contextId, thoughtId),
-
-    onMutate: async ({ contextId, thoughtId }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
-
-      queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
-        old
-          ? {
-              ...old,
-              thoughts: old.thoughts.map((t) =>
-                t.id === thoughtId
-                  ? { ...t, contextIds: t.contextIds.filter((id) => id !== contextId) }
-                  : t,
-              ),
-            }
-          : old,
-      );
-
-      return { previous };
-    },
-
-    onError: (_error, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKey, context.previous);
-      }
-    },
-
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey });
-    },
-  });
-}
-
-/**
- * Прибирання думки з контексту на СТОРІНЦІ КОНТЕКСТУ. Той самий DELETE, що й у
- * Синтезі, але оптимістично оновлює кеш сторінки контексту.
- */
-export function useRemoveThoughtFromContextPage(contextId: string) {
-  const queryClient = useQueryClient();
-  const { queryKey } = contextQuery(contextId);
-
-  return useMutation<void, Error, { thoughtId: string }, { previous: ContextDetail | undefined }>({
-    mutationFn: ({ thoughtId }) => api.removeThoughtFromContext(contextId, thoughtId),
-
-    onMutate: async ({ thoughtId }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<ContextDetail>(queryKey);
-
-      queryClient.setQueryData<ContextDetail>(queryKey, (old) =>
-        old ? { ...old, thoughts: old.thoughts.filter((t) => t.id !== thoughtId) } : old,
       );
 
       return { previous };

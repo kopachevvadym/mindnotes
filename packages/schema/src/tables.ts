@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, boolean, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Сесія читання. Може бути без назви (`title` NULL) — користувач не зобовʼязаний
@@ -25,31 +25,5 @@ export const thoughts = pgTable("thought", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/**
- * Контекст — тематична група думок. Глобальний (спільний для всіх сесій).
- * `emoji` — провідний гліф (не колір), `name` — головний ідентифікатор.
- */
-export const contexts = pgTable("context", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  emoji: text("emoji").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-/** Зв'язок many-to-many: думка ↔ контекст. Складений ключ. */
-export const thoughtContexts = pgTable(
-  "thought_context",
-  {
-    thoughtId: uuid("thought_id")
-      .notNull()
-      .references(() => thoughts.id, { onDelete: "cascade" }),
-    contextId: uuid("context_id")
-      .notNull()
-      .references(() => contexts.id, { onDelete: "cascade" }),
-  },
-  (t) => [primaryKey({ columns: [t.thoughtId, t.contextId] })],
-);
-
 export type SessionRow = typeof sessions.$inferSelect;
 export type ThoughtRow = typeof thoughts.$inferSelect;
-export type ContextRow = typeof contexts.$inferSelect;

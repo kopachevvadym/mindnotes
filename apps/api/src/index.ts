@@ -1,22 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { asc, count, desc, eq } from "drizzle-orm";
 import {
   sessions,
   thoughts,
-  contexts,
-  thoughtContexts,
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
-  contextDtoSchema,
-  contextListSchema,
-  contextDetailSchema,
   createThoughtInputSchema,
   updateThoughtInputSchema,
   updateSessionInputSchema,
-  createContextInputSchema,
-  assignThoughtsInputSchema,
   thoughtDtoSchema,
 } from "@mindnotes/schema";
 import { db } from "./db";
@@ -83,27 +76,10 @@ app.get("/sessions/:id", async (c) => {
     .where(eq(thoughts.sessionId, id))
     .orderBy(asc(thoughts.createdAt));
 
-  // Контексти думок цієї сесії → мапа thoughtId → contextIds[].
-  const links = await db
-    .select({ thoughtId: thoughtContexts.thoughtId, contextId: thoughtContexts.contextId })
-    .from(thoughtContexts)
-    .innerJoin(thoughts, eq(thoughts.id, thoughtContexts.thoughtId))
-    .where(eq(thoughts.sessionId, id));
-
-  const contextIdsByThought = new Map<string, string[]>();
-  for (const link of links) {
-    const list = contextIdsByThought.get(link.thoughtId) ?? [];
-    list.push(link.contextId);
-    contextIdsByThought.set(link.thoughtId, list);
-  }
-
   // Валідуємо відповідь спільною zod-схемою перед віддачею.
   const payload = sessionDetailSchema.parse({
     session: serializeSession(session),
-    thoughts: rows.map((row) => ({
-      ...serializeThought(row),
-      contextIds: contextIdsByThought.get(row.id) ?? [],
-    })),
+    thoughts: rows.map((row) => serializeThought(row)),
   });
 
   return c.json(payload);
@@ -189,107 +165,6 @@ app.delete("/sessions/:id", async (c) => {
   if (!row) {
     return c.json({ error: "session_not_found" }, 404);
   }
-
-  return c.body(null, 204);
-});
-
-// GET /contexts → глобальний список контекстів (для пошуку/пікера)
-app.get("/contexts", async (c) => {
-  const rows = await db
-    .select({ id: contexts.id, name: contexts.name, emoji: contexts.emoji })
-    .from(contexts)
-    .orderBy(asc(contexts.name));
-
-  return c.json(contextListSchema.parse(rows));
-});
-
-// POST /contexts → створює контекст
-app.post("/contexts", async (c) => {
-  const json = await c.req.json().catch(() => null);
-  const parsed = createContextInputSchema.safeParse(json);
-  if (!parsed.success) {
-    return c.json({ error: "invalid_body" }, 400);
-  }
-
-  const [row] = await db
-    .insert(contexts)
-    .values({ name: parsed.data.name, emoji: parsed.data.emoji })
-    .returning();
-
-  const payload = contextDtoSchema.parse({ id: row!.id, name: row!.name, emoji: row!.emoji });
-  return c.json(payload, 201);
-});
-
-// GET /contexts/:id → контекст + його думки з джерелом (сесією), created_at desc
-app.get("/contexts/:id", async (c) => {
-  const id = c.req.param("id");
-
-  const [ctx] = await db.select().from(contexts).where(eq(contexts.id, id)).limit(1);
-  if (!ctx) {
-    return c.json({ error: "context_not_found" }, 404);
-  }
-
-  const rows = await db
-    .select({
-      id: thoughts.id,
-      sessionId: thoughts.sessionId,
-      body: thoughts.body,
-      archived: thoughts.archived,
-      createdAt: thoughts.createdAt,
-      sessionTitle: sessions.title,
-    })
-    .from(thoughtContexts)
-    .innerJoin(thoughts, eq(thoughts.id, thoughtContexts.thoughtId))
-    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
-    .where(eq(thoughtContexts.contextId, id))
-    .orderBy(desc(thoughts.createdAt));
-
-  const payload = contextDetailSchema.parse({
-    context: { id: ctx.id, name: ctx.name, emoji: ctx.emoji },
-    thoughts: rows.map((r) => ({
-      id: r.id,
-      sessionId: r.sessionId,
-      body: r.body,
-      archived: r.archived,
-      createdAt: r.createdAt.toISOString(),
-      sessionTitle: r.sessionTitle,
-    })),
-  });
-
-  return c.json(payload);
-});
-
-// POST /contexts/:id/thoughts → додає думки в контекст (ідемпотентно)
-app.post("/contexts/:id/thoughts", async (c) => {
-  const contextId = c.req.param("id");
-
-  const json = await c.req.json().catch(() => null);
-  const parsed = assignThoughtsInputSchema.safeParse(json);
-  if (!parsed.success) {
-    return c.json({ error: "invalid_body" }, 400);
-  }
-
-  const [ctx] = await db.select().from(contexts).where(eq(contexts.id, contextId)).limit(1);
-  if (!ctx) {
-    return c.json({ error: "context_not_found" }, 404);
-  }
-
-  await db
-    .insert(thoughtContexts)
-    .values(parsed.data.thoughtIds.map((thoughtId) => ({ thoughtId, contextId })))
-    .onConflictDoNothing();
-
-  return c.body(null, 204);
-});
-
-// DELETE /contexts/:id/thoughts/:thoughtId → прибирає думку з контексту
-app.delete("/contexts/:id/thoughts/:thoughtId", async (c) => {
-  const contextId = c.req.param("id");
-  const thoughtId = c.req.param("thoughtId");
-
-  await db
-    .delete(thoughtContexts)
-    .where(and(eq(thoughtContexts.contextId, contextId), eq(thoughtContexts.thoughtId, thoughtId)));
 
   return c.body(null, 204);
 });

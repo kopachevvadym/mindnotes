@@ -3,21 +3,14 @@ import {
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
-  contextDtoSchema,
-  contextListSchema,
-  contextDetailSchema,
   thoughtDtoSchema,
   type SessionDto,
   type SessionDetail,
   type SessionListItem,
-  type ContextDto,
-  type ContextDetail,
   type ThoughtDto,
   type CreateThoughtInput,
   type UpdateThoughtInput,
   type UpdateSessionInput,
-  type CreateContextInput,
-  type AssignThoughtsInput,
 } from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -103,45 +96,5 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
-  },
-
-  getContexts(): Promise<ContextDto[]> {
-    return request(`/contexts`, contextListSchema);
-  },
-
-  getContext(id: string): Promise<ContextDetail> {
-    return request(`/contexts/${id}`, contextDetailSchema);
-  },
-
-  createContext(input: CreateContextInput): Promise<ContextDto> {
-    return request(`/contexts`, contextDtoSchema, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-  },
-
-  async assignThoughts(contextId: string, input: AssignThoughtsInput): Promise<void> {
-    const res = await fetch(`${baseUrl}/contexts/${contextId}/thoughts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) {
-      throw new ApiError(`Запит POST /contexts/${contextId}/thoughts повернув ${res.status}`, res.status);
-    }
-  },
-
-  async removeThoughtFromContext(contextId: string, thoughtId: string): Promise<void> {
-    const res = await fetch(`${baseUrl}/contexts/${contextId}/thoughts/${thoughtId}`, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) {
-      throw new ApiError(
-        `Запит DELETE /contexts/${contextId}/thoughts/${thoughtId} повернув ${res.status}`,
-        res.status,
-      );
-    }
   },
 };

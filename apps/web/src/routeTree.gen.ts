@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
-import { Route as ContextsContextIdRouteImport } from './routes/contexts/$contextId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,39 +22,30 @@ const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   path: '/sessions/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ContextsContextIdRoute = ContextsContextIdRouteImport.update({
-  id: '/contexts/$contextId',
-  path: '/contexts/$contextId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/contexts/$contextId': typeof ContextsContextIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/contexts/$contextId': typeof ContextsContextIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/contexts/$contextId': typeof ContextsContextIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/contexts/$contextId' | '/sessions/$sessionId'
+  fullPaths: '/' | '/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/contexts/$contextId' | '/sessions/$sessionId'
-  id: '__root__' | '/' | '/contexts/$contextId' | '/sessions/$sessionId'
+  to: '/' | '/sessions/$sessionId'
+  id: '__root__' | '/' | '/sessions/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ContextsContextIdRoute: typeof ContextsContextIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
 }
 
@@ -75,19 +65,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contexts/$contextId': {
-      id: '/contexts/$contextId'
-      path: '/contexts/$contextId'
-      fullPath: '/contexts/$contextId'
-      preLoaderRoute: typeof ContextsContextIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ContextsContextIdRoute: ContextsContextIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
 }
 export const routeTree = rootRouteImport

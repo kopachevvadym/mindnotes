@@ -4,25 +4,14 @@ import type { SessionDto } from "@mindnotes/schema";
 import { Button } from "@/components/ui/button";
 import { useUpdateSession } from "@/lib/mutations";
 import { formatSessionDate, pluralThoughts } from "@/lib/format";
-import { cn } from "@/lib/utils";
-
-export type SessionMode = "flow" | "synthesis";
 
 interface SessionHeaderProps {
   session: SessionDto;
   activeCount: number;
   archivedCount: number;
-  mode: SessionMode;
-  onModeChange: (mode: SessionMode) => void;
 }
 
-export function SessionHeader({
-  session,
-  activeCount,
-  archivedCount,
-  mode,
-  onModeChange,
-}: SessionHeaderProps) {
+export function SessionHeader({ session, activeCount, archivedCount }: SessionHeaderProps) {
   const updateSession = useUpdateSession(session.id);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -118,26 +107,6 @@ export function SessionHeader({
           </>
         ) : null}
       </p>
-
-      {/* Перемикач режиму Потік / Синтез */}
-      <div className="inline-flex rounded-full border border-border bg-secondary/40 p-0.5 font-sans text-sm">
-        {(["flow", "synthesis"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => onModeChange(m)}
-            aria-pressed={mode === m}
-            className={cn(
-              "rounded-full px-4 py-1 transition-colors",
-              mode === m
-                ? "bg-paper text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {m === "flow" ? "Потік" : "Синтез"}
-          </button>
-        ))}
-      </div>
     </header>
   );
 }

@@ -13,15 +13,3 @@ export const sessionQuery = (id: string) =>
     queryKey: ["session", id],
     queryFn: () => api.getSession(id),
   });
-
-export const contextsQuery = () =>
-  queryOptions({
-    queryKey: ["contexts"],
-    queryFn: () => api.getContexts(),
-  });
-
-export const contextQuery = (id: string) =>
-  queryOptions({
-    queryKey: ["context", id],
-    queryFn: () => api.getContext(id),
-  });
