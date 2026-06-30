@@ -5,7 +5,8 @@ import { z } from "zod";
 config({ path: "../../.env", quiet: true });
 
 const envSchema = z.object({
-  DATABASE_URL: z.url(),
+  // Шлях до локального SQLite-файлу (відносно cwd = apps/api), напр. `mindnotes.db`.
+  DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().default(3000),
   WEB_ORIGIN: z.url().default("http://localhost:5173"),
 });

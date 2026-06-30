@@ -273,9 +273,10 @@ app.post("/ideas", async (c) => {
   }
 
   // Створення ідеї + лінк думки-насінини — в одній транзакції.
-  const idea = await db.transaction(async (tx) => {
-    const [created] = await tx.insert(ideas).values({}).returning();
-    await tx.insert(ideaThoughts).values({ ideaId: created!.id, thoughtId: seedThoughtId });
+  // bun:sqlite — синхронна транзакція (без await, з .run()/.all()).
+  const idea = db.transaction((tx) => {
+    const [created] = tx.insert(ideas).values({}).returning().all();
+    tx.insert(ideaThoughts).values({ ideaId: created!.id, thoughtId: seedThoughtId }).run();
     return created!;
   });
 
@@ -419,9 +420,10 @@ app.delete("/ideas/:id", async (c) => {
     return c.json({ error: "idea_not_found" }, 404);
   }
 
-  await db.transaction(async (tx) => {
-    await tx.delete(ideaThoughts).where(eq(ideaThoughts.ideaId, id));
-    await tx.delete(ideas).where(eq(ideas.id, id));
+  // bun:sqlite — синхронна транзакція.
+  db.transaction((tx) => {
+    tx.delete(ideaThoughts).where(eq(ideaThoughts.ideaId, id)).run();
+    tx.delete(ideas).where(eq(ideas.id, id)).run();
   });
 
   return c.body(null, 204);

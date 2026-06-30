@@ -1,48 +1,60 @@
-import { pgTable, uuid, text, boolean, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+
+/** uuid-рядок як id (SQLite не має типу uuid). */
+const uuidPk = () =>
+  text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID());
+
+/** Час як ціле (unix ms), drizzle віддає/приймає Date — тож serialize/toISOString не міняються. */
+const tsNow = (name: string) =>
+  integer(name, { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date());
 
 /**
  * Сесія читання. Може бути без назви (`title` NULL) — користувач не зобовʼязаний
  * іменувати її одразу.
  */
-export const sessions = pgTable("session", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const sessions = sqliteTable("session", {
+  id: uuidPk(),
   title: text("title"),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: tsNow("started_at"),
+  createdAt: tsNow("created_at"),
 });
 
 /**
  * Одна думка в межах сесії. `archived` ховає думку з основного потоку (крок 2+),
  * але запис лишається.
  */
-export const thoughts = pgTable("thought", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  sessionId: uuid("session_id")
+export const thoughts = sqliteTable("thought", {
+  id: uuidPk(),
+  sessionId: text("session_id")
     .notNull()
     .references(() => sessions.id, { onDelete: "cascade" }),
   body: text("body").notNull(),
-  archived: boolean("archived").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  createdAt: tsNow("created_at"),
 });
 
 /**
  * Ідея — сутність із власною тезою (NULL, доки не сформульована). Росте знизу:
  * народжується з конкретної думки-насінини.
  */
-export const ideas = pgTable("idea", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const ideas = sqliteTable("idea", {
+  id: uuidPk(),
   thesis: text("thesis"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: tsNow("created_at"),
 });
 
 /** Зв'язок many-to-many: ідея ↔ думка. Складений ключ. */
-export const ideaThoughts = pgTable(
+export const ideaThoughts = sqliteTable(
   "idea_thought",
   {
-    ideaId: uuid("idea_id")
+    ideaId: text("idea_id")
       .notNull()
       .references(() => ideas.id, { onDelete: "cascade" }),
-    thoughtId: uuid("thought_id")
+    thoughtId: text("thought_id")
       .notNull()
       .references(() => thoughts.id, { onDelete: "cascade" }),
   },

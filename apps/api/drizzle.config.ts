@@ -7,8 +7,8 @@ config({ path: "../../.env", quiet: true });
 export default defineConfig({
   schema: "../../packages/schema/src/tables.ts",
   out: "./drizzle",
-  dialect: "postgresql",
+  dialect: "sqlite",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
+    url: `file:${process.env.DATABASE_URL ?? "mindnotes.db"}`,
   },
 });

@@ -4,3 +4,8 @@ dist/
 *.log
 .env
 .DS_Store
+
+# SQLite (локальна БД)
+*.db
+*.db-shm
+*.db-wal

@@ -15,7 +15,6 @@
     "dev:web": "pnpm --filter @mindnotes/web dev",
     "db:generate": "pnpm --filter @mindnotes/api db:generate",
     "db:migrate": "pnpm --filter @mindnotes/api db:migrate",
-    "db:push": "pnpm --filter @mindnotes/api db:push",
     "db:seed": "pnpm --filter @mindnotes/api db:seed"
   },
   "devDependencies": {

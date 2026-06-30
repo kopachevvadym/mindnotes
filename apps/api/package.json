@@ -8,15 +8,13 @@
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
+    "db:migrate": "bun run src/migrate.ts",
     "db:seed": "bun run src/seed.ts"
   },
   "dependencies": {
     "@mindnotes/schema": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.26",
-    "postgres": "^3.4.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {

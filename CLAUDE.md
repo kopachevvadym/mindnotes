@@ -19,7 +19,7 @@ pnpm dev              # turbo: підняти api + web
 
 ```
 apps/
-  api/        Hono на bun + drizzle-orm (Postgres)
+  api/        Hono на bun + drizzle-orm (SQLite, локальний файл)
   web/        Vite + React + TS, tailwind, shadcn/ui, tanstack router/query, zustand
 packages/
   schema/     zod-схеми + drizzle-таблиці (спільні для фронта і бека)
@@ -35,11 +35,11 @@ packages/
 
 ## Команди БД
 
+Локальний SQLite-файл (`apps/api/mindnotes.db`, шлях у `DATABASE_URL`). Драйвер — `bun:sqlite`. Жодного докера.
+
 ```bash
-docker compose up -d        # Postgres
-pnpm db:generate            # згенерувати міграції з drizzle-схеми
-pnpm db:migrate             # застосувати міграції
-pnpm db:push                # запушити схему напряму (швидкий прототип, без міграцій)
+pnpm db:generate            # згенерувати SQLite-міграцію з drizzle-схеми
+pnpm db:migrate             # застосувати міграції (bun-sqlite migrator)
 pnpm db:seed                # засіяти демо-сесію
 ```
 
