@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { IdeaDetail, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
+import type { IdeaDetail, IdeaDto, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
 import { api } from "./api-client";
-import { sessionQuery, sessionsQuery } from "./queries";
+import { ideaQuery, ideasQuery, sessionQuery, sessionsQuery } from "./queries";
 
 interface SessionCacheContext {
   previous: SessionDetail | undefined;
@@ -30,7 +30,7 @@ export function useCreateThought(sessionId: string) {
         body,
         archived: false,
         createdAt: new Date().toISOString(),
-        ideaCount: 0,
+        ideaId: null,
       };
 
       queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
@@ -242,29 +242,52 @@ export function useDeleteThought(sessionId: string) {
 }
 
 /**
- * Народження ідеї з думки-насінини. Оптимістично збільшуємо лічильник ідей цієї
- * думки — миттєво зʼявляється мітка «в ідеї». onError — відкат; onSettled — реконсайл.
+ * Народження ідеї з думки-насінини. id нової ідеї відомий лише з відповіді, тож мітку-двері
+ * (ideaId) ставимо в onSuccess; onSettled — реконсайл сесії із сервером.
  */
 export function useCreateIdea(sessionId: string) {
   const queryClient = useQueryClient();
   const { queryKey } = sessionQuery(sessionId);
 
-  return useMutation<IdeaDetail, Error, { seedThoughtId: string }, SessionCacheContext>({
+  return useMutation<IdeaDetail, Error, { seedThoughtId: string }>({
     mutationFn: ({ seedThoughtId }) => api.createIdea({ seedThoughtId }),
 
-    onMutate: async ({ seedThoughtId }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<SessionDetail>(queryKey);
-
+    onSuccess: (data, { seedThoughtId }) => {
       queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
         old
           ? {
               ...old,
               thoughts: old.thoughts.map((t) =>
-                t.id === seedThoughtId ? { ...t, ideaCount: t.ideaCount + 1 } : t,
+                t.id === seedThoughtId ? { ...t, ideaId: data.idea.id } : t,
               ),
             }
           : old,
+      );
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+/**
+ * Оновлення тези ідеї з оптимістичним оновленням у кеші сторінки ідеї.
+ * onError — відкат; onSettled — реконсайл сторінки та списку.
+ */
+export function useUpdateIdea(ideaId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = ideaQuery(ideaId);
+
+  return useMutation<IdeaDto, Error, { thesis: string | null }, { previous: IdeaDetail | undefined }>({
+    mutationFn: ({ thesis }) => api.updateIdea(ideaId, { thesis }),
+
+    onMutate: async ({ thesis }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<IdeaDetail>(queryKey);
+
+      queryClient.setQueryData<IdeaDetail>(queryKey, (old) =>
+        old ? { ...old, idea: { ...old.idea, thesis } } : old,
       );
 
       return { previous };
@@ -278,6 +301,7 @@ export function useCreateIdea(sessionId: string) {
 
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
     },
   });
 }

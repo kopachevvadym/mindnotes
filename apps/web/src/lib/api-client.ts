@@ -4,7 +4,9 @@ import {
   sessionDetailSchema,
   sessionListSchema,
   thoughtDtoSchema,
+  ideaDtoSchema,
   ideaDetailSchema,
+  ideaListSchema,
   type SessionDto,
   type SessionDetail,
   type SessionListItem,
@@ -12,8 +14,11 @@ import {
   type CreateThoughtInput,
   type UpdateThoughtInput,
   type UpdateSessionInput,
+  type IdeaDto,
   type IdeaDetail,
+  type IdeaListItem,
   type CreateIdeaInput,
+  type UpdateIdeaInput,
 } from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -114,6 +119,22 @@ export const api = {
   createIdea(input: CreateIdeaInput): Promise<IdeaDetail> {
     return request(`/ideas`, ideaDetailSchema, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  },
+
+  getIdeas(): Promise<IdeaListItem[]> {
+    return request(`/ideas`, ideaListSchema);
+  },
+
+  getIdea(id: string): Promise<IdeaDetail> {
+    return request(`/ideas/${id}`, ideaDetailSchema);
+  },
+
+  updateIdea(id: string, input: UpdateIdeaInput): Promise<IdeaDto> {
+    return request(`/ideas/${id}`, ideaDtoSchema, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });

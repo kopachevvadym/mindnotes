@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Lightbulb, MoreVertical } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { THOUGHT_EDIT_WINDOW_MIN, type SessionThoughtDto } from "@mindnotes/schema";
 import {
   DropdownMenu,
@@ -195,7 +196,7 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
                     >
                       {thought.body}
                     </p>
-                    {thought.ideaCount > 0 ? <IdeaMark count={thought.ideaCount} /> : null}
+                    {thought.ideaId ? <IdeaMark ideaId={thought.ideaId} /> : null}
                     <ThoughtTime rel={rel} title={fullTime} />
                   </>
                 )}
@@ -243,13 +244,19 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
   );
 }
 
-/** Тиха персистентна мітка: думка живить ідею(ї). */
-function IdeaMark({ count }: { count: number }) {
+/** Тиха персистентна мітка-двері: веде на сторінку ідеї, яку живить ця думка. */
+function IdeaMark({ ideaId }: { ideaId: string }) {
   return (
-    <p className="mt-1 flex items-center gap-1 font-sans text-[11px] text-muted-foreground">
-      <Lightbulb className="size-3" aria-hidden />
-      {count === 1 ? "в ідеї" : `у ${count} ідеях`}
-    </p>
+    <div className="mt-1">
+      <Link
+        to="/ideas/$ideaId"
+        params={{ ideaId }}
+        className="inline-flex items-center gap-1 font-sans text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+      >
+        <Lightbulb className="size-3" aria-hidden />
+        в ідеї
+      </Link>
+    </div>
   );
 }
 

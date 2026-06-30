@@ -13,7 +13,10 @@ import {
   updateThoughtInputSchema,
   updateSessionInputSchema,
   createIdeaInputSchema,
+  updateIdeaInputSchema,
+  ideaDtoSchema,
   ideaDetailSchema,
+  ideaListSchema,
   thoughtDtoSchema,
   THOUGHT_EDIT_WINDOW_MIN,
 } from "@mindnotes/schema";
@@ -87,17 +90,19 @@ app.get("/sessions/:id", async (c) => {
     .where(eq(thoughts.sessionId, id))
     .orderBy(asc(thoughts.createdAt));
 
-  // Скільки ідей живить кожна думка цієї сесії → мапа thoughtId → count.
-  const ideaCounts = await db
-    .select({ thoughtId: ideaThoughts.thoughtId, ideas: count(ideaThoughts.ideaId) })
+  // Для мітки-дверей: id НАЙНОВІШОЇ ідеї, яку живить кожна думка цієї сесії (null = жодної).
+  const ideaLinks = await db
+    .select({ thoughtId: ideaThoughts.thoughtId, ideaId: ideaThoughts.ideaId })
     .from(ideaThoughts)
     .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .innerJoin(ideas, eq(ideas.id, ideaThoughts.ideaId))
     .where(eq(thoughts.sessionId, id))
-    .groupBy(ideaThoughts.thoughtId);
+    .orderBy(desc(ideas.createdAt));
 
-  const ideaCountByThought = new Map<string, number>();
-  for (const row of ideaCounts) {
-    ideaCountByThought.set(row.thoughtId, Number(row.ideas));
+  const ideaIdByThought = new Map<string, string>();
+  for (const link of ideaLinks) {
+    // desc за created_at → перший побачений для думки і є найновішим.
+    if (!ideaIdByThought.has(link.thoughtId)) ideaIdByThought.set(link.thoughtId, link.ideaId);
   }
 
   // Валідуємо відповідь спільною zod-схемою перед віддачею.
@@ -105,7 +110,7 @@ app.get("/sessions/:id", async (c) => {
     session: serializeSession(session),
     thoughts: rows.map((row) => ({
       ...serializeThought(row),
-      ideaCount: ideaCountByThought.get(row.id) ?? 0,
+      ideaId: ideaIdByThought.get(row.id) ?? null,
     })),
   });
 
@@ -241,18 +246,117 @@ app.post("/ideas", async (c) => {
   });
 
   const linked = await db
-    .select()
-    .from(thoughts)
-    .innerJoin(ideaThoughts, eq(ideaThoughts.thoughtId, thoughts.id))
+    .select({
+      id: thoughts.id,
+      sessionId: thoughts.sessionId,
+      body: thoughts.body,
+      archived: thoughts.archived,
+      createdAt: thoughts.createdAt,
+      sessionTitle: sessions.title,
+    })
+    .from(ideaThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
     .where(eq(ideaThoughts.ideaId, idea.id))
     .orderBy(asc(thoughts.createdAt));
 
   const payload = ideaDetailSchema.parse({
     idea: serializeIdea(idea),
-    thoughts: linked.map((r) => serializeThought(r.thought)),
+    thoughts: linked.map((r) => ({
+      id: r.id,
+      sessionId: r.sessionId,
+      body: r.body,
+      archived: r.archived,
+      createdAt: r.createdAt.toISOString(),
+      sessionTitle: r.sessionTitle,
+    })),
   });
 
   return c.json(payload, 201);
+});
+
+// GET /ideas → скромний список ідей: id, thesis, к-ть думок, created_at; найновіші зверху
+app.get("/ideas", async (c) => {
+  const rows = await db
+    .select({
+      id: ideas.id,
+      thesis: ideas.thesis,
+      createdAt: ideas.createdAt,
+      thoughtCount: count(ideaThoughts.thoughtId),
+    })
+    .from(ideas)
+    .leftJoin(ideaThoughts, eq(ideaThoughts.ideaId, ideas.id))
+    .groupBy(ideas.id)
+    .orderBy(desc(ideas.createdAt));
+
+  const payload = ideaListSchema.parse(
+    rows.map((r) => ({
+      id: r.id,
+      thesis: r.thesis,
+      thoughtCount: r.thoughtCount,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  );
+  return c.json(payload);
+});
+
+// GET /ideas/:id → ідея + її думки з джерелом (сесією), created_at desc
+app.get("/ideas/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, id)).limit(1);
+  if (!idea) {
+    return c.json({ error: "idea_not_found" }, 404);
+  }
+
+  const rows = await db
+    .select({
+      id: thoughts.id,
+      sessionId: thoughts.sessionId,
+      body: thoughts.body,
+      archived: thoughts.archived,
+      createdAt: thoughts.createdAt,
+      sessionTitle: sessions.title,
+    })
+    .from(ideaThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
+    .where(eq(ideaThoughts.ideaId, id))
+    .orderBy(desc(thoughts.createdAt));
+
+  const payload = ideaDetailSchema.parse({
+    idea: serializeIdea(idea),
+    thoughts: rows.map((r) => ({
+      id: r.id,
+      sessionId: r.sessionId,
+      body: r.body,
+      archived: r.archived,
+      createdAt: r.createdAt.toISOString(),
+      sessionTitle: r.sessionTitle,
+    })),
+  });
+  return c.json(payload);
+});
+
+// PATCH /ideas/:id → оновити тезу (порожня/null дозволена), повертає оновлену ідею
+app.patch("/ideas/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const json = await c.req.json().catch(() => null);
+  const parsed = updateIdeaInputSchema.safeParse(json);
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  const thesis = parsed.data.thesis?.trim() ? parsed.data.thesis.trim() : null;
+
+  const [row] = await db.update(ideas).set({ thesis }).where(eq(ideas.id, id)).returning();
+  if (!row) {
+    return c.json({ error: "idea_not_found" }, 404);
+  }
+
+  const payload = ideaDtoSchema.parse(serializeIdea(row));
+  return c.json(payload);
 });
 
 export default {

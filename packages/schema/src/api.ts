@@ -21,9 +21,9 @@ export const sessionDtoSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
 });
 
-/** Думка в межах сесії — з лічильником ідей, які вона живить (для мітки «в ідеї»). */
+/** Думка в межах сесії — з id однієї (найновішої) ідеї для мітки-дверей; null = не в ідеї. */
 export const sessionThoughtDtoSchema = thoughtDtoSchema.extend({
-  ideaCount: z.number().int().nonnegative(),
+  ideaId: z.uuid().nullable(),
 });
 
 /** GET /sessions/:id */
@@ -65,16 +65,36 @@ export const ideaDtoSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
 });
 
+/** Думка-член ідеї — з джерелом (сесією). */
+export const ideaThoughtDtoSchema = thoughtDtoSchema.extend({
+  sessionTitle: z.string().nullable(),
+});
+
 /** POST /ideas — тіло запиту: думка-насінина. */
 export const createIdeaInputSchema = z.object({
   seedThoughtId: z.uuid(),
 });
 
-/** POST /ideas — відповідь: створена ідея разом з її думками. */
+/** PATCH /ideas/:id — тіло запиту. Теза ніколи не обовʼязкова (може бути null). */
+export const updateIdeaInputSchema = z.object({
+  thesis: z.string().nullable(),
+});
+
+/** POST /ideas та GET /ideas/:id — ідея разом з її думками (з джерелом). */
 export const ideaDetailSchema = z.object({
   idea: ideaDtoSchema,
-  thoughts: z.array(thoughtDtoSchema),
+  thoughts: z.array(ideaThoughtDtoSchema),
 });
+
+/** Елемент списку ідей (GET /ideas) — з агрегатом кількості думок. */
+export const ideaListItemSchema = z.object({
+  id: z.uuid(),
+  thesis: z.string().nullable(),
+  thoughtCount: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+
+export const ideaListSchema = z.array(ideaListItemSchema);
 
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
 export type SessionThoughtDto = z.infer<typeof sessionThoughtDtoSchema>;
@@ -85,5 +105,8 @@ export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;
 export type UpdateThoughtInput = z.infer<typeof updateThoughtInputSchema>;
 export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>;
 export type IdeaDto = z.infer<typeof ideaDtoSchema>;
+export type IdeaThoughtDto = z.infer<typeof ideaThoughtDtoSchema>;
 export type IdeaDetail = z.infer<typeof ideaDetailSchema>;
+export type IdeaListItem = z.infer<typeof ideaListItemSchema>;
 export type CreateIdeaInput = z.infer<typeof createIdeaInputSchema>;
+export type UpdateIdeaInput = z.infer<typeof updateIdeaInputSchema>;

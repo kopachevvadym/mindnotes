@@ -13,3 +13,15 @@ export const sessionQuery = (id: string) =>
     queryKey: ["session", id],
     queryFn: () => api.getSession(id),
   });
+
+export const ideasQuery = () =>
+  queryOptions({
+    queryKey: ["ideas"],
+    queryFn: () => api.getIdeas(),
+  });
+
+export const ideaQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["idea", id],
+    queryFn: () => api.getIdea(id),
+  });
