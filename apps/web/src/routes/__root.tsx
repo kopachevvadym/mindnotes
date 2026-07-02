@@ -1,4 +1,5 @@
 import { createRootRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { SearchPalette } from "@/components/search/SearchPalette";
 import { cn } from "@/lib/utils";
 
 export const Route = createRootRoute({
@@ -16,6 +17,7 @@ function RootLayout() {
         <AppNav />
         <Outlet />
       </div>
+      <SearchPalette />
     </div>
   );
 }

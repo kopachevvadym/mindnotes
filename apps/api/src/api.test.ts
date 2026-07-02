@@ -59,6 +59,35 @@ describe("health", () => {
   });
 });
 
+describe("пошук", () => {
+  test("GET /search знаходить сесії, групи й думки без огляду на регістр кирилиці", async () => {
+    const sessionId = await createSession();
+    await app.request(`/sessions/${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: "Викрадена УВАГА" }),
+    });
+    const seed = await createThought(sessionId, "УВАГА як колективна проблема");
+    const contextId = await createContext(seed);
+
+    const res = await app.request(`/search?q=${encodeURIComponent("увага")}`);
+    expect(res.status).toBe(200);
+    const results = (await res.json()) as {
+      sessions: Array<{ id: string }>;
+      contexts: Array<{ id: string; previewBody: string | null }>;
+      thoughts: Array<{ id: string; sessionId: string }>;
+    };
+    expect(results.sessions.some((s) => s.id === sessionId)).toBe(true);
+    // Група без тези знаходиться за превʼю думки-насінини.
+    expect(results.contexts.some((g) => g.id === contextId)).toBe(true);
+    expect(results.thoughts.some((t) => t.id === seed && t.sessionId === sessionId)).toBe(true);
+  });
+
+  test("GET /search з порожнім q → порожні групи", async () => {
+    const res = await app.request("/search?q=%20");
+    expect(await res.json()).toEqual({ sessions: [], contexts: [], thoughts: [] });
+  });
+});
+
 describe("сесії", () => {
   test("POST /sessions створює порожню сесію без назви", async () => {
     const res = await app.request("/sessions", { method: "POST" });

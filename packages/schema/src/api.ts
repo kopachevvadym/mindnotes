@@ -105,6 +105,37 @@ export const contextListItemSchema = z.object({
 
 export const contextListSchema = z.array(contextListItemSchema);
 
+/**
+ * GET /search?q= — результати трьома групами: сесії (за назвою), групи (за тезою
+ * чи превʼю), думки (за текстом; стрибок веде в сесію-джерело).
+ */
+export const searchResultsSchema = z.object({
+  sessions: z.array(
+    z.object({
+      id: z.uuid(),
+      title: z.string().nullable(),
+      createdAt: z.iso.datetime({ offset: true }),
+    }),
+  ),
+  contexts: z.array(
+    z.object({
+      id: z.uuid(),
+      thesis: z.string().nullable(),
+      previewBody: z.string().nullable(),
+    }),
+  ),
+  thoughts: z.array(
+    z.object({
+      id: z.uuid(),
+      sessionId: z.uuid(),
+      body: z.string(),
+      sessionTitle: z.string().nullable(),
+    }),
+  ),
+});
+
+export type SearchResults = z.infer<typeof searchResultsSchema>;
+
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
 export type SessionThoughtDto = z.infer<typeof sessionThoughtDtoSchema>;
 export type SessionDto = z.infer<typeof sessionDtoSchema>;

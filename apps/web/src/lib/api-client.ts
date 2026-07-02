@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   THOUGHT_EDIT_WINDOW_MIN,
+  searchResultsSchema,
+  type SearchResults,
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
@@ -103,6 +105,10 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
 export const api = {
   getSessions(): Promise<SessionListItem[]> {
     return request(`/sessions`, sessionListSchema);
+  },
+
+  search(q: string): Promise<SearchResults> {
+    return request(`/search?q=${encodeURIComponent(q)}`, searchResultsSchema);
   },
 
   createSession(): Promise<SessionDto> {

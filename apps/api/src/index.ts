@@ -19,6 +19,7 @@ import {
   contextDetailSchema,
   contextListSchema,
   thoughtDtoSchema,
+  searchResultsSchema,
   THOUGHT_EDIT_WINDOW_MIN,
 } from "@mindnotes/schema";
 import { db } from "./db";
@@ -50,6 +51,58 @@ app.onError((err, c) => {
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+/** Скільки збігів віддавати на групу результатів. */
+const SEARCH_LIMITS = { sessions: 5, contexts: 5, thoughts: 8 };
+
+// GET /search?q= → сесії за назвою, групи за тезою/превʼю, думки за текстом.
+// Фільтруємо в JS: lower() у SQLite не згортає кирилицю, а обсяг даних локальний.
+app.get("/search", async (c) => {
+  const q = (c.req.query("q") ?? "").trim().toLowerCase();
+
+  if (!q) {
+    const empty = searchResultsSchema.parse({ sessions: [], contexts: [], thoughts: [] });
+    return c.json(empty);
+  }
+
+  const matches = (value: string | null) => (value ?? "").toLowerCase().includes(q);
+
+  const sessionRows = await db
+    .select({ id: sessions.id, title: sessions.title, createdAt: sessions.createdAt })
+    .from(sessions)
+    .orderBy(desc(sessions.createdAt));
+
+  const contextRows = await db
+    .select({ id: contexts.id, thesis: contexts.thesis })
+    .from(contexts)
+    .orderBy(desc(contexts.createdAt));
+  const previewByContext = await loadContextPreviews();
+
+  const thoughtRows = await db
+    .select({
+      id: thoughts.id,
+      sessionId: thoughts.sessionId,
+      body: thoughts.body,
+      sessionTitle: sessions.title,
+    })
+    .from(thoughts)
+    .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
+    .orderBy(desc(thoughts.createdAt));
+
+  const payload = searchResultsSchema.parse({
+    sessions: sessionRows
+      .filter((s) => matches(s.title))
+      .slice(0, SEARCH_LIMITS.sessions)
+      .map((s) => ({ id: s.id, title: s.title, createdAt: s.createdAt.toISOString() })),
+    contexts: contextRows
+      .map((g) => ({ id: g.id, thesis: g.thesis, previewBody: previewByContext.get(g.id) ?? null }))
+      .filter((g) => matches(g.thesis) || matches(g.previewBody))
+      .slice(0, SEARCH_LIMITS.contexts),
+    thoughts: thoughtRows.filter((t) => matches(t.body)).slice(0, SEARCH_LIMITS.thoughts),
+  });
+
+  return c.json(payload);
+});
 
 // GET /sessions → список сесій з кількістю думок, найновіші зверху
 app.get("/sessions", async (c) => {

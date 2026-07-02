@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import type { SessionDto } from "@mindnotes/schema";
 import { Button } from "@/components/ui/button";
 import { useUpdateSession } from "@/lib/mutations";
+import { useSearchStore } from "@/store/search-store";
 import { formatSessionDate, pluralThoughts } from "@/lib/format";
 
 interface SessionHeaderProps {
@@ -13,6 +14,7 @@ interface SessionHeaderProps {
 
 export function SessionHeader({ session, activeCount, archivedCount }: SessionHeaderProps) {
   const updateSession = useUpdateSession(session.id);
+  const openSearch = useSearchStore((s) => s.setOpen);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +91,7 @@ export function SessionHeader({ session, activeCount, archivedCount }: SessionHe
             variant="ghost"
             size="icon"
             aria-label="Пошук (⌘K)"
+            onClick={() => openSearch(true)}
             className="-mr-2 shrink-0 text-muted-foreground"
           >
             <Search />
