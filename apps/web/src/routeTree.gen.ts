@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContextsIndexRouteImport } from './routes/contexts/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as ContextsContextIdRouteImport } from './routes/contexts/$contextId'
+import { Route as SessionsSessionIdTriageRouteImport } from './routes/sessions/$sessionId_.triage'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ContextsContextIdRoute = ContextsContextIdRouteImport.update({
   path: '/contexts/$contextId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionsSessionIdTriageRoute = SessionsSessionIdTriageRouteImport.update({
+  id: '/sessions/$sessionId_/triage',
+  path: '/sessions/$sessionId/triage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contexts/$contextId': typeof ContextsContextIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/contexts/': typeof ContextsIndexRoute
+  '/sessions/$sessionId/triage': typeof SessionsSessionIdTriageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contexts/$contextId': typeof ContextsContextIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/contexts': typeof ContextsIndexRoute
+  '/sessions/$sessionId/triage': typeof SessionsSessionIdTriageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,6 +61,7 @@ export interface FileRoutesById {
   '/contexts/$contextId': typeof ContextsContextIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/contexts/': typeof ContextsIndexRoute
+  '/sessions/$sessionId_/triage': typeof SessionsSessionIdTriageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -61,14 +70,21 @@ export interface FileRouteTypes {
     | '/contexts/$contextId'
     | '/sessions/$sessionId'
     | '/contexts/'
+    | '/sessions/$sessionId/triage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/contexts/$contextId' | '/sessions/$sessionId' | '/contexts'
+  to:
+    | '/'
+    | '/contexts/$contextId'
+    | '/sessions/$sessionId'
+    | '/contexts'
+    | '/sessions/$sessionId/triage'
   id:
     | '__root__'
     | '/'
     | '/contexts/$contextId'
     | '/sessions/$sessionId'
     | '/contexts/'
+    | '/sessions/$sessionId_/triage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +92,7 @@ export interface RootRouteChildren {
   ContextsContextIdRoute: typeof ContextsContextIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   ContextsIndexRoute: typeof ContextsIndexRoute
+  SessionsSessionIdTriageRoute: typeof SessionsSessionIdTriageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -108,6 +125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContextsContextIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sessions/$sessionId_/triage': {
+      id: '/sessions/$sessionId_/triage'
+      path: '/sessions/$sessionId/triage'
+      fullPath: '/sessions/$sessionId/triage'
+      preLoaderRoute: typeof SessionsSessionIdTriageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -116,6 +140,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContextsContextIdRoute: ContextsContextIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   ContextsIndexRoute: ContextsIndexRoute,
+  SessionsSessionIdTriageRoute: SessionsSessionIdTriageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

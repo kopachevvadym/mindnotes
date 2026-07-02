@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { sessionQuery } from "@/lib/queries";
+import { pluralThoughts } from "@/lib/format";
 import { SessionHeader } from "@/components/session/SessionHeader";
 import { ThoughtStream } from "@/components/session/ThoughtStream";
 import { CaptureBar } from "@/components/session/CaptureBar";
@@ -27,12 +29,25 @@ export function SessionPage({ sessionId }: SessionPageProps) {
   const activeCount = thoughts.filter((t) => !t.archived).length;
   const archivedCount = thoughts.length - activeCount;
   const isEmptySession = session.title === null && thoughts.length === 0;
+  // Нерозібрані: активні думки поза будь-якою групою — кандидати на розбір.
+  const unsortedCount = thoughts.filter((t) => !t.archived && t.contextId === null).length;
 
   return (
     <div className="flex flex-1 flex-col">
       <SessionHeader session={session} activeCount={activeCount} archivedCount={archivedCount} />
 
       <main className="flex-1 pt-6">
+        {unsortedCount > 0 ? (
+          <div className="flex justify-end pb-4">
+            <Link
+              to="/sessions/$sessionId/triage"
+              params={{ sessionId }}
+              className="font-sans text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              розібрати {pluralThoughts(unsortedCount)} →
+            </Link>
+          </div>
+        ) : null}
         <ThoughtStream thoughts={thoughts} sessionId={sessionId} dimmed={isCapturing} />
       </main>
 

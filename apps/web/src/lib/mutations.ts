@@ -272,6 +272,8 @@ export function useCreateContext(sessionId: string) {
 
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
+      // Нова група мусить одразу зʼявитись у списках (зокрема у швидких кнопках розбору).
+      void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
     },
   });
 }
