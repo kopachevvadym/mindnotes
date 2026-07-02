@@ -281,7 +281,7 @@ function ThoughtTime({ rel, title }: { rel: string; title: string }) {
   return (
     <p
       title={title}
-      className="mt-1 font-mono text-[11px] tracking-wide text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 motion-reduce:transition-none"
+      className="mt-1 font-mono text-[11px] tracking-wide text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 hoverless:opacity-100 motion-reduce:transition-none"
     >
       {rel}
     </p>

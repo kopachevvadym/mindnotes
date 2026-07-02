@@ -78,7 +78,7 @@ export function ContextPage({ contextId }: ContextPageProps) {
                 onClick={() => removeThought.mutate({ thoughtId: thought.id })}
                 aria-label="Відчепити від ідеї"
                 title="Відчепити від ідеї"
-                className="mt-0.5 shrink-0 rounded-md p-1 text-transparent transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:text-muted-foreground/40"
+                className="mt-0.5 shrink-0 rounded-md p-1 text-transparent transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:text-muted-foreground/40 hoverless:text-muted-foreground/40"
               >
                 <X className="size-4" />
               </button>

@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Пристрої без hover (телефон/планшет): те, що проявляється наведенням,
+   мусить бути видимим одразу. */
+@custom-variant hoverless {
+  @media (hover: none) {
+    @slot;
+  }
+}
+
 :root {
   /* Тепла паперова палітра — кремовий фон, чорнильний текст */
   --background: hsl(42 38% 94%);
