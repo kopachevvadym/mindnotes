@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "bun test src"
   },
   "dependencies": {
     "@mindnotes/schema": "workspace:*",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
     "@tanstack/router-plugin": "^1.168.18",
+    "@types/bun": "^1.3.14",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",

@@ -11,6 +11,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "dev:api": "pnpm --filter @mindnotes/api dev",
     "dev:web": "pnpm --filter @mindnotes/web dev",
     "db:generate": "pnpm --filter @mindnotes/api db:generate",
