@@ -318,7 +318,23 @@ app.post("/contexts", async (c) => {
   return c.json(payload, 201);
 });
 
-// GET /contexts → скромний список ідей: id, thesis, к-ть думок, created_at; найновіші зверху
+/** Тіло найранішої думки кожної групи — превʼю для груп без тези. */
+async function loadContextPreviews(): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ contextId: contextThoughts.contextId, body: thoughts.body })
+    .from(contextThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, contextThoughts.thoughtId))
+    .orderBy(asc(thoughts.createdAt));
+
+  const previewByContext = new Map<string, string>();
+  for (const row of rows) {
+    // asc за created_at → перше побачене для групи і є найранішим.
+    if (!previewByContext.has(row.contextId)) previewByContext.set(row.contextId, row.body);
+  }
+  return previewByContext;
+}
+
+// GET /contexts → скромний список груп: id, thesis, к-ть думок, превʼю, created_at; найновіші зверху
 app.get("/contexts", async (c) => {
   const rows = await db
     .select({
@@ -332,11 +348,14 @@ app.get("/contexts", async (c) => {
     .groupBy(contexts.id)
     .orderBy(desc(contexts.createdAt));
 
+  const previewByContext = await loadContextPreviews();
+
   const payload = contextListSchema.parse(
     rows.map((r) => ({
       id: r.id,
       thesis: r.thesis,
       thoughtCount: r.thoughtCount,
+      previewBody: previewByContext.get(r.id) ?? null,
       createdAt: r.createdAt.toISOString(),
     })),
   );

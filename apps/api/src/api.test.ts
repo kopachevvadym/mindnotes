@@ -336,6 +336,24 @@ describe("ідеї", () => {
     expect(detail.thoughts.length).toBe(0);
   });
 
+  test("GET /contexts віддає превʼю найранішої думки групи", async () => {
+    const sessionId = await createSession();
+    const seed = await createThought(sessionId, "найраніша — вона і є превʼю");
+    const contextId = await createContext(seed);
+    await app.request(`/contexts/${contextId}/thoughts`, {
+      method: "POST",
+      body: JSON.stringify({ thoughtId: await createThought(sessionId, "пізніша") }),
+    });
+
+    const list = (await (await app.request("/contexts")).json()) as Array<{
+      id: string;
+      previewBody: string | null;
+    }>;
+    expect(list.find((i) => i.id === contextId)?.previewBody).toBe(
+      "найраніша — вона і є превʼю",
+    );
+  });
+
   test("GET /contexts рахує думки кожної ідеї", async () => {
     const sessionId = await createSession();
     const contextId = await createContext(await createThought(sessionId, "перша"));

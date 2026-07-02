@@ -11,13 +11,15 @@ interface AddToContextPickerProps {
   /** Думка, яку втягуємо в ідею; null = пікер закритий. */
   thoughtId: string | null;
   onClose: () => void;
+  /** Викликається після вибору групи (режим розбору так рухає чергу далі). */
+  onPicked?: (contextId: string) => void;
 }
 
 /**
- * Пікер «у наявну ідею»: пошук за тезою + список. Нуль-теза показується як «Без назви»
- * з датою (щоб тестові дублі були відрізнянні). Вибір → втягнути думку. Bottom-sheet, ~380px.
+ * Пікер «у наявну ідею»: пошук за тезою чи превʼю + список. Група без тези показується
+ * превʼю найранішої думки. Вибір → втягнути думку. Bottom-sheet, ~380px.
  */
-export function AddToContextPicker({ sessionId, thoughtId, onClose }: AddToContextPickerProps) {
+export function AddToContextPicker({ sessionId, thoughtId, onClose, onPicked }: AddToContextPickerProps) {
   const open = thoughtId !== null;
   const [query, setQuery] = useState("");
   const { data: contexts = [], isPending } = useQuery({ ...contextsQuery(), enabled: open });
@@ -25,12 +27,15 @@ export function AddToContextPicker({ sessionId, thoughtId, onClose }: AddToConte
 
   const trimmed = query.trim().toLowerCase();
   const matches = trimmed
-    ? contexts.filter((i) => (i.thesis ?? "").toLowerCase().includes(trimmed))
+    ? contexts.filter((i) =>
+        (i.thesis ?? i.previewBody ?? "").toLowerCase().includes(trimmed),
+      )
     : contexts;
 
   function pick(contextId: string) {
     if (!thoughtId) return;
     addThought.mutate({ contextId, thoughtId });
+    onPicked?.(contextId);
     onClose();
   }
 
@@ -57,7 +62,7 @@ export function AddToContextPicker({ sessionId, thoughtId, onClose }: AddToConte
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Пошук ідеї за тезою…"
+            placeholder="Пошук ідеї…"
             aria-label="Пошук ідеї"
             className="w-full border-0 border-b border-border bg-transparent px-1 pb-2 font-serif text-lg text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
@@ -85,7 +90,7 @@ export function AddToContextPicker({ sessionId, thoughtId, onClose }: AddToConte
                         context.thesis ? "text-foreground" : "italic text-muted-foreground",
                       )}
                     >
-                      {context.thesis ?? "Без назви"}
+                      {context.thesis ?? context.previewBody ?? "Без назви"}
                     </span>
                     <span className="font-sans text-xs text-muted-foreground">
                       {formatSessionDate(context.createdAt)} · {pluralThoughts(context.thoughtCount)}

@@ -91,11 +91,15 @@ export const contextDetailSchema = z.object({
   thoughts: z.array(contextThoughtDtoSchema),
 });
 
-/** Елемент списку контекстів (GET /contexts) — з агрегатом кількості думок. */
+/**
+ * Елемент списку контекстів (GET /contexts) — з агрегатом кількості думок і превʼю.
+ * previewBody — тіло найранішої думки групи: показує групу без тези людською мовою.
+ */
 export const contextListItemSchema = z.object({
   id: z.uuid(),
   thesis: z.string().nullable(),
   thoughtCount: z.number().int().nonnegative(),
+  previewBody: z.string().nullable(),
   createdAt: z.iso.datetime({ offset: true }),
 });
 
