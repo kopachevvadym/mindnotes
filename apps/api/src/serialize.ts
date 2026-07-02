@@ -1,10 +1,10 @@
 import type {
   SessionRow,
   ThoughtRow,
-  IdeaRow,
+  ContextRow,
   SessionDto,
   ThoughtDto,
-  IdeaDto,
+  ContextDto,
 } from "@mindnotes/schema";
 
 /** Перетворюємо рядки drizzle (з Date) у DTO з ISO-рядками. */
@@ -27,7 +27,7 @@ export function serializeThought(row: ThoughtRow): ThoughtDto {
   };
 }
 
-export function serializeIdea(row: IdeaRow): IdeaDto {
+export function serializeContext(row: ContextRow): ContextDto {
   return {
     id: row.id,
     thesis: row.thesis,

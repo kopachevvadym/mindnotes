@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { IdeaDetail, IdeaDto, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
+import type { ContextDetail, ContextDto, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
 import { api } from "./api-client";
-import { ideaQuery, ideasQuery, sessionQuery, sessionsQuery } from "./queries";
+import { contextQuery, contextsQuery, sessionQuery, sessionsQuery } from "./queries";
 
 interface SessionCacheContext {
   previous: SessionDetail | undefined;
@@ -30,7 +30,7 @@ export function useCreateThought(sessionId: string) {
         body,
         archived: false,
         createdAt: new Date().toISOString(),
-        ideaId: null,
+        contextId: null,
       };
 
       queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
@@ -243,14 +243,14 @@ export function useDeleteThought(sessionId: string) {
 
 /**
  * Народження ідеї з думки-насінини. id нової ідеї відомий лише з відповіді, тож мітку-двері
- * (ideaId) ставимо в onSuccess; onSettled — реконсайл сесії із сервером.
+ * (contextId) ставимо в onSuccess; onSettled — реконсайл сесії із сервером.
  */
-export function useCreateIdea(sessionId: string) {
+export function useCreateContext(sessionId: string) {
   const queryClient = useQueryClient();
   const { queryKey } = sessionQuery(sessionId);
 
-  return useMutation<IdeaDetail, Error, { seedThoughtId: string }>({
-    mutationFn: ({ seedThoughtId }) => api.createIdea({ seedThoughtId }),
+  return useMutation<ContextDetail, Error, { seedThoughtId: string }>({
+    mutationFn: ({ seedThoughtId }) => api.createContext({ seedThoughtId }),
 
     onSuccess: (data, { seedThoughtId }) => {
       queryClient.setQueryData<SessionDetail>(queryKey, (old) =>
@@ -258,7 +258,7 @@ export function useCreateIdea(sessionId: string) {
           ? {
               ...old,
               thoughts: old.thoughts.map((t) =>
-                t.id === seedThoughtId ? { ...t, ideaId: data.idea.id } : t,
+                t.id === seedThoughtId ? { ...t, contextId: data.context.id } : t,
               ),
             }
           : old,
@@ -275,19 +275,19 @@ export function useCreateIdea(sessionId: string) {
  * Оновлення тези ідеї з оптимістичним оновленням у кеші сторінки ідеї.
  * onError — відкат; onSettled — реконсайл сторінки та списку.
  */
-export function useUpdateIdea(ideaId: string) {
+export function useUpdateContext(contextId: string) {
   const queryClient = useQueryClient();
-  const { queryKey } = ideaQuery(ideaId);
+  const { queryKey } = contextQuery(contextId);
 
-  return useMutation<IdeaDto, Error, { thesis: string | null }, { previous: IdeaDetail | undefined }>({
-    mutationFn: ({ thesis }) => api.updateIdea(ideaId, { thesis }),
+  return useMutation<ContextDto, Error, { thesis: string | null }, { previous: ContextDetail | undefined }>({
+    mutationFn: ({ thesis }) => api.updateContext(contextId, { thesis }),
 
     onMutate: async ({ thesis }) => {
       await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<IdeaDetail>(queryKey);
+      const previous = queryClient.getQueryData<ContextDetail>(queryKey);
 
-      queryClient.setQueryData<IdeaDetail>(queryKey, (old) =>
-        old ? { ...old, idea: { ...old.idea, thesis } } : old,
+      queryClient.setQueryData<ContextDetail>(queryKey, (old) =>
+        old ? { ...old, context: { ...old.context, thesis } } : old,
       );
 
       return { previous };
@@ -301,23 +301,23 @@ export function useUpdateIdea(ideaId: string) {
 
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
-      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
+      void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
     },
   });
 }
 
 /**
  * Втягування НАЯВНОЇ думки в НАЯВНУ ідею. Оптимістично: якщо думка ще без ідеї —
- * ставимо ideaId (зʼявляється мітка-двері). onSettled — реконсайл сесії, ідеї та списку.
+ * ставимо contextId (зʼявляється мітка-двері). onSettled — реконсайл сесії, ідеї та списку.
  */
-export function useAddThoughtToIdea(sessionId: string) {
+export function useAddThoughtToContext(sessionId: string) {
   const queryClient = useQueryClient();
   const { queryKey } = sessionQuery(sessionId);
 
-  return useMutation<IdeaDetail, Error, { ideaId: string; thoughtId: string }, SessionCacheContext>({
-    mutationFn: ({ ideaId, thoughtId }) => api.addThoughtToIdea(ideaId, { thoughtId }),
+  return useMutation<ContextDetail, Error, { contextId: string; thoughtId: string }, SessionCacheContext>({
+    mutationFn: ({ contextId, thoughtId }) => api.addThoughtToContext(contextId, { thoughtId }),
 
-    onMutate: async ({ ideaId, thoughtId }) => {
+    onMutate: async ({ contextId, thoughtId }) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<SessionDetail>(queryKey);
 
@@ -326,7 +326,7 @@ export function useAddThoughtToIdea(sessionId: string) {
           ? {
               ...old,
               thoughts: old.thoughts.map((t) =>
-                t.id === thoughtId ? { ...t, ideaId: t.ideaId ?? ideaId } : t,
+                t.id === thoughtId ? { ...t, contextId: t.contextId ?? contextId } : t,
               ),
             }
           : old,
@@ -341,10 +341,10 @@ export function useAddThoughtToIdea(sessionId: string) {
       }
     },
 
-    onSettled: (_data, _error, { ideaId }) => {
+    onSettled: (_data, _error, { contextId }) => {
       void queryClient.invalidateQueries({ queryKey });
-      void queryClient.invalidateQueries({ queryKey: ideaQuery(ideaId).queryKey });
-      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
+      void queryClient.invalidateQueries({ queryKey: contextQuery(contextId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
     },
   });
 }
@@ -353,18 +353,18 @@ export function useAddThoughtToIdea(sessionId: string) {
  * Відчеплення думки від ідеї (сама думка лишається в потоці). Оптимістично прибираємо
  * думку з кешу сторінки ідеї. onError — відкат; onSettled — реконсайл ідеї та списку.
  */
-export function useRemoveThoughtFromIdea(ideaId: string) {
+export function useRemoveThoughtFromContext(contextId: string) {
   const queryClient = useQueryClient();
-  const { queryKey } = ideaQuery(ideaId);
+  const { queryKey } = contextQuery(contextId);
 
-  return useMutation<void, Error, { thoughtId: string }, { previous: IdeaDetail | undefined }>({
-    mutationFn: ({ thoughtId }) => api.removeThoughtFromIdea(ideaId, thoughtId),
+  return useMutation<void, Error, { thoughtId: string }, { previous: ContextDetail | undefined }>({
+    mutationFn: ({ thoughtId }) => api.removeThoughtFromContext(contextId, thoughtId),
 
     onMutate: async ({ thoughtId }) => {
       await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<IdeaDetail>(queryKey);
+      const previous = queryClient.getQueryData<ContextDetail>(queryKey);
 
-      queryClient.setQueryData<IdeaDetail>(queryKey, (old) =>
+      queryClient.setQueryData<ContextDetail>(queryKey, (old) =>
         old ? { ...old, thoughts: old.thoughts.filter((t) => t.id !== thoughtId) } : old,
       );
 
@@ -379,7 +379,7 @@ export function useRemoveThoughtFromIdea(ideaId: string) {
 
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
-      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
+      void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
     },
   });
 }
@@ -387,15 +387,15 @@ export function useRemoveThoughtFromIdea(ideaId: string) {
 /**
  * Видалення ідеї (думки лишаються в потоці). Після успіху — навігація в список ідей.
  */
-export function useDeleteIdea() {
+export function useDeleteContext() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   return useMutation<void, Error, string>({
-    mutationFn: (id) => api.deleteIdea(id),
+    mutationFn: (id) => api.deleteContext(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ideasQuery().queryKey });
-      void navigate({ to: "/ideas" });
+      void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
+      void navigate({ to: "/contexts" });
     },
   });
 }

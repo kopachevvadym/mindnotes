@@ -31,7 +31,7 @@ const navIdle = "text-muted-foreground hover:text-foreground";
  */
 function AppNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const section = pathname.startsWith("/ideas") ? "ideas" : "sessions";
+  const section = pathname.startsWith("/contexts") ? "contexts" : "sessions";
 
   return (
     <nav className="flex items-center gap-3 pt-6 pb-1 font-sans text-sm">
@@ -41,7 +41,7 @@ function AppNav() {
       <span aria-hidden className="text-muted-foreground/40">
         ·
       </span>
-      <Link to="/ideas" className={cn(navBase, section === "ideas" ? navActive : navIdle)}>
+      <Link to="/contexts" className={cn(navBase, section === "contexts" ? navActive : navIdle)}>
         Ідеї
       </Link>
     </nav>

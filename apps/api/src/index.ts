@@ -4,26 +4,26 @@ import { and, asc, count, desc, eq } from "drizzle-orm";
 import {
   sessions,
   thoughts,
-  ideas,
-  ideaThoughts,
+  contexts,
+  contextThoughts,
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
   createThoughtInputSchema,
   updateThoughtInputSchema,
   updateSessionInputSchema,
-  createIdeaInputSchema,
-  addThoughtToIdeaInputSchema,
-  updateIdeaInputSchema,
-  ideaDtoSchema,
-  ideaDetailSchema,
-  ideaListSchema,
+  createContextInputSchema,
+  addThoughtToContextInputSchema,
+  updateContextInputSchema,
+  contextDtoSchema,
+  contextDetailSchema,
+  contextListSchema,
   thoughtDtoSchema,
   THOUGHT_EDIT_WINDOW_MIN,
 } from "@mindnotes/schema";
 import { db } from "./db";
 import { env } from "./env";
-import { serializeSession, serializeThought, serializeIdea } from "./serialize";
+import { serializeSession, serializeThought, serializeContext } from "./serialize";
 
 /** Вікно (від створення), у якому думку ще можна редагувати/видалити. */
 const EDIT_WINDOW_MS = THOUGHT_EDIT_WINDOW_MIN * 60_000;
@@ -31,7 +31,7 @@ function withinEditWindow(createdAt: Date): boolean {
   return Date.now() - createdAt.getTime() <= EDIT_WINDOW_MS;
 }
 
-const app = new Hono();
+export const app = new Hono();
 
 app.use(
   "/*",
@@ -40,6 +40,14 @@ app.use(
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
+
+// Помилки завжди віддаємо у формі { error: code } — фронт мапить коди на людські тексти.
+app.onError((err, c) => {
+  console.error(err);
+  return c.json({ error: "internal" }, 500);
+});
+
+app.notFound((c) => c.json({ error: "not_found" }, 404));
 
 app.get("/health", (c) => c.json({ ok: true }));
 
@@ -92,18 +100,18 @@ app.get("/sessions/:id", async (c) => {
     .orderBy(asc(thoughts.createdAt));
 
   // Для мітки-дверей: id НАЙНОВІШОЇ ідеї, яку живить кожна думка цієї сесії (null = жодної).
-  const ideaLinks = await db
-    .select({ thoughtId: ideaThoughts.thoughtId, ideaId: ideaThoughts.ideaId })
-    .from(ideaThoughts)
-    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
-    .innerJoin(ideas, eq(ideas.id, ideaThoughts.ideaId))
+  const contextLinks = await db
+    .select({ thoughtId: contextThoughts.thoughtId, contextId: contextThoughts.contextId })
+    .from(contextThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, contextThoughts.thoughtId))
+    .innerJoin(contexts, eq(contexts.id, contextThoughts.contextId))
     .where(eq(thoughts.sessionId, id))
-    .orderBy(desc(ideas.createdAt));
+    .orderBy(desc(contexts.createdAt));
 
-  const ideaIdByThought = new Map<string, string>();
-  for (const link of ideaLinks) {
+  const contextIdByThought = new Map<string, string>();
+  for (const link of contextLinks) {
     // desc за created_at → перший побачений для думки і є найновішим.
-    if (!ideaIdByThought.has(link.thoughtId)) ideaIdByThought.set(link.thoughtId, link.ideaId);
+    if (!contextIdByThought.has(link.thoughtId)) contextIdByThought.set(link.thoughtId, link.contextId);
   }
 
   // Валідуємо відповідь спільною zod-схемою перед віддачею.
@@ -111,7 +119,7 @@ app.get("/sessions/:id", async (c) => {
     session: serializeSession(session),
     thoughts: rows.map((row) => ({
       ...serializeThought(row),
-      ideaId: ideaIdByThought.get(row.id) ?? null,
+      contextId: contextIdByThought.get(row.id) ?? null,
     })),
   });
 
@@ -172,7 +180,7 @@ app.patch("/thoughts/:id", async (c) => {
   return c.json(payload);
 });
 
-// DELETE /thoughts/:id → видаляє думку (лише в межах вікна); лінки idea_thought прибирає cascade
+// DELETE /thoughts/:id → видаляє думку (лише в межах вікна); лінки context_thought прибирає cascade
 app.delete("/thoughts/:id", async (c) => {
   const id = c.req.param("id");
 
@@ -225,9 +233,9 @@ app.delete("/sessions/:id", async (c) => {
 });
 
 /** Ідея + її думки з джерелом (сесією), created_at desc. null, якщо ідеї нема. */
-async function loadIdeaDetail(ideaId: string) {
-  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
-  if (!idea) return null;
+async function loadContextDetail(contextId: string) {
+  const [context] = await db.select().from(contexts).where(eq(contexts.id, contextId)).limit(1);
+  if (!context) return null;
 
   const rows = await db
     .select({
@@ -238,14 +246,14 @@ async function loadIdeaDetail(ideaId: string) {
       createdAt: thoughts.createdAt,
       sessionTitle: sessions.title,
     })
-    .from(ideaThoughts)
-    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .from(contextThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, contextThoughts.thoughtId))
     .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
-    .where(eq(ideaThoughts.ideaId, ideaId))
+    .where(eq(contextThoughts.contextId, contextId))
     .orderBy(desc(thoughts.createdAt));
 
-  return ideaDetailSchema.parse({
-    idea: serializeIdea(idea),
+  return contextDetailSchema.parse({
+    context: serializeContext(context),
     thoughts: rows.map((r) => ({
       id: r.id,
       sessionId: r.sessionId,
@@ -257,10 +265,10 @@ async function loadIdeaDetail(ideaId: string) {
   });
 }
 
-// POST /ideas → народжує ідею (thesis=null) з думки-насінини, лінкує її, повертає ідею + думки
-app.post("/ideas", async (c) => {
+// POST /contexts → народжує ідею (thesis=null) з думки-насінини, лінкує її, повертає ідею + думки
+app.post("/contexts", async (c) => {
   const json = await c.req.json().catch(() => null);
-  const parsed = createIdeaInputSchema.safeParse(json);
+  const parsed = createContextInputSchema.safeParse(json);
   if (!parsed.success) {
     return c.json({ error: "invalid_body" }, 400);
   }
@@ -274,9 +282,9 @@ app.post("/ideas", async (c) => {
 
   // Створення ідеї + лінк думки-насінини — в одній транзакції.
   // bun:sqlite — синхронна транзакція (без await, з .run()/.all()).
-  const idea = db.transaction((tx) => {
-    const [created] = tx.insert(ideas).values({}).returning().all();
-    tx.insert(ideaThoughts).values({ ideaId: created!.id, thoughtId: seedThoughtId }).run();
+  const context = db.transaction((tx) => {
+    const [created] = tx.insert(contexts).values({}).returning().all();
+    tx.insert(contextThoughts).values({ contextId: created!.id, thoughtId: seedThoughtId }).run();
     return created!;
   });
 
@@ -289,14 +297,14 @@ app.post("/ideas", async (c) => {
       createdAt: thoughts.createdAt,
       sessionTitle: sessions.title,
     })
-    .from(ideaThoughts)
-    .innerJoin(thoughts, eq(thoughts.id, ideaThoughts.thoughtId))
+    .from(contextThoughts)
+    .innerJoin(thoughts, eq(thoughts.id, contextThoughts.thoughtId))
     .innerJoin(sessions, eq(sessions.id, thoughts.sessionId))
-    .where(eq(ideaThoughts.ideaId, idea.id))
+    .where(eq(contextThoughts.contextId, context.id))
     .orderBy(asc(thoughts.createdAt));
 
-  const payload = ideaDetailSchema.parse({
-    idea: serializeIdea(idea),
+  const payload = contextDetailSchema.parse({
+    context: serializeContext(context),
     thoughts: linked.map((r) => ({
       id: r.id,
       sessionId: r.sessionId,
@@ -310,21 +318,21 @@ app.post("/ideas", async (c) => {
   return c.json(payload, 201);
 });
 
-// GET /ideas → скромний список ідей: id, thesis, к-ть думок, created_at; найновіші зверху
-app.get("/ideas", async (c) => {
+// GET /contexts → скромний список ідей: id, thesis, к-ть думок, created_at; найновіші зверху
+app.get("/contexts", async (c) => {
   const rows = await db
     .select({
-      id: ideas.id,
-      thesis: ideas.thesis,
-      createdAt: ideas.createdAt,
-      thoughtCount: count(ideaThoughts.thoughtId),
+      id: contexts.id,
+      thesis: contexts.thesis,
+      createdAt: contexts.createdAt,
+      thoughtCount: count(contextThoughts.thoughtId),
     })
-    .from(ideas)
-    .leftJoin(ideaThoughts, eq(ideaThoughts.ideaId, ideas.id))
-    .groupBy(ideas.id)
-    .orderBy(desc(ideas.createdAt));
+    .from(contexts)
+    .leftJoin(contextThoughts, eq(contextThoughts.contextId, contexts.id))
+    .groupBy(contexts.id)
+    .orderBy(desc(contexts.createdAt));
 
-  const payload = ideaListSchema.parse(
+  const payload = contextListSchema.parse(
     rows.map((r) => ({
       id: r.id,
       thesis: r.thesis,
@@ -335,49 +343,49 @@ app.get("/ideas", async (c) => {
   return c.json(payload);
 });
 
-// GET /ideas/:id → ідея + її думки з джерелом (сесією), created_at desc
-app.get("/ideas/:id", async (c) => {
-  const payload = await loadIdeaDetail(c.req.param("id"));
+// GET /contexts/:id → ідея + її думки з джерелом (сесією), created_at desc
+app.get("/contexts/:id", async (c) => {
+  const payload = await loadContextDetail(c.req.param("id"));
   if (!payload) {
-    return c.json({ error: "idea_not_found" }, 404);
+    return c.json({ error: "context_not_found" }, 404);
   }
   return c.json(payload);
 });
 
-// PATCH /ideas/:id → оновити тезу (порожня/null дозволена), повертає оновлену ідею
-app.patch("/ideas/:id", async (c) => {
+// PATCH /contexts/:id → оновити тезу (порожня/null дозволена), повертає оновлену ідею
+app.patch("/contexts/:id", async (c) => {
   const id = c.req.param("id");
 
   const json = await c.req.json().catch(() => null);
-  const parsed = updateIdeaInputSchema.safeParse(json);
+  const parsed = updateContextInputSchema.safeParse(json);
   if (!parsed.success) {
     return c.json({ error: "invalid_body" }, 400);
   }
 
   const thesis = parsed.data.thesis?.trim() ? parsed.data.thesis.trim() : null;
 
-  const [row] = await db.update(ideas).set({ thesis }).where(eq(ideas.id, id)).returning();
+  const [row] = await db.update(contexts).set({ thesis }).where(eq(contexts.id, id)).returning();
   if (!row) {
-    return c.json({ error: "idea_not_found" }, 404);
+    return c.json({ error: "context_not_found" }, 404);
   }
 
-  const payload = ideaDtoSchema.parse(serializeIdea(row));
+  const payload = contextDtoSchema.parse(serializeContext(row));
   return c.json(payload);
 });
 
-// POST /ideas/:id/thoughts → втягнути НАЯВНУ думку в НАЯВНУ ідею (ідемпотентно), повернути ідею
-app.post("/ideas/:id/thoughts", async (c) => {
-  const ideaId = c.req.param("id");
+// POST /contexts/:id/thoughts → втягнути НАЯВНУ думку в НАЯВНУ ідею (ідемпотентно), повернути ідею
+app.post("/contexts/:id/thoughts", async (c) => {
+  const contextId = c.req.param("id");
 
   const json = await c.req.json().catch(() => null);
-  const parsed = addThoughtToIdeaInputSchema.safeParse(json);
+  const parsed = addThoughtToContextInputSchema.safeParse(json);
   if (!parsed.success) {
     return c.json({ error: "invalid_body" }, 400);
   }
 
-  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
-  if (!idea) {
-    return c.json({ error: "idea_not_found" }, 404);
+  const [context] = await db.select().from(contexts).where(eq(contexts.id, contextId)).limit(1);
+  if (!context) {
+    return c.json({ error: "context_not_found" }, 404);
   }
 
   const [thought] = await db
@@ -391,39 +399,39 @@ app.post("/ideas/:id/thoughts", async (c) => {
 
   // Ідемпотентно: повторне втягування тієї ж думки — не дубль, не помилка.
   await db
-    .insert(ideaThoughts)
-    .values({ ideaId, thoughtId: parsed.data.thoughtId })
+    .insert(contextThoughts)
+    .values({ contextId, thoughtId: parsed.data.thoughtId })
     .onConflictDoNothing();
 
-  const payload = await loadIdeaDetail(ideaId);
+  const payload = await loadContextDetail(contextId);
   return c.json(payload!);
 });
 
-// DELETE /ideas/:id/thoughts/:thoughtId → відчепити думку від ідеї (саму думку НЕ видаляти)
-app.delete("/ideas/:id/thoughts/:thoughtId", async (c) => {
-  const ideaId = c.req.param("id");
+// DELETE /contexts/:id/thoughts/:thoughtId → відчепити думку від ідеї (саму думку НЕ видаляти)
+app.delete("/contexts/:id/thoughts/:thoughtId", async (c) => {
+  const contextId = c.req.param("id");
   const thoughtId = c.req.param("thoughtId");
 
   await db
-    .delete(ideaThoughts)
-    .where(and(eq(ideaThoughts.ideaId, ideaId), eq(ideaThoughts.thoughtId, thoughtId)));
+    .delete(contextThoughts)
+    .where(and(eq(contextThoughts.contextId, contextId), eq(contextThoughts.thoughtId, thoughtId)));
 
   return c.body(null, 204);
 });
 
-// DELETE /ideas/:id → видалити ідею: спершу лінки idea_thought, тоді саму ідею. Думки лишаються.
-app.delete("/ideas/:id", async (c) => {
+// DELETE /contexts/:id → видалити ідею: спершу лінки context_thought, тоді саму ідею. Думки лишаються.
+app.delete("/contexts/:id", async (c) => {
   const id = c.req.param("id");
 
-  const [existing] = await db.select().from(ideas).where(eq(ideas.id, id)).limit(1);
+  const [existing] = await db.select().from(contexts).where(eq(contexts.id, id)).limit(1);
   if (!existing) {
-    return c.json({ error: "idea_not_found" }, 404);
+    return c.json({ error: "context_not_found" }, 404);
   }
 
   // bun:sqlite — синхронна транзакція.
   db.transaction((tx) => {
-    tx.delete(ideaThoughts).where(eq(ideaThoughts.ideaId, id)).run();
-    tx.delete(ideas).where(eq(ideas.id, id)).run();
+    tx.delete(contextThoughts).where(eq(contextThoughts.contextId, id)).run();
+    tx.delete(contexts).where(eq(contexts.id, id)).run();
   });
 
   return c.body(null, 204);

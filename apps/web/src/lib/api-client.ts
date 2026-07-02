@@ -1,12 +1,13 @@
 import { z } from "zod";
 import {
+  THOUGHT_EDIT_WINDOW_MIN,
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
   thoughtDtoSchema,
-  ideaDtoSchema,
-  ideaDetailSchema,
-  ideaListSchema,
+  contextDtoSchema,
+  contextDetailSchema,
+  contextListSchema,
   type SessionDto,
   type SessionDetail,
   type SessionListItem,
@@ -14,12 +15,12 @@ import {
   type CreateThoughtInput,
   type UpdateThoughtInput,
   type UpdateSessionInput,
-  type IdeaDto,
-  type IdeaDetail,
-  type IdeaListItem,
-  type CreateIdeaInput,
-  type AddThoughtToIdeaInput,
-  type UpdateIdeaInput,
+  type ContextDto,
+  type ContextDetail,
+  type ContextListItem,
+  type CreateContextInput,
+  type AddThoughtToContextInput,
+  type UpdateContextInput,
 } from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -32,10 +33,37 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Машинний код помилки з тіла відповіді бекенда ({ error: code }), якщо був. */
+    readonly code: string | null = null,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+/** Людські повідомлення для кодів помилок бекенда. */
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_body: "Некоректний запит.",
+  session_not_found: "Сесію не знайдено.",
+  thought_not_found: "Думку не знайдено.",
+  context_not_found: "Ідею не знайдено.",
+  edit_window_closed: `Редагувати можна лише протягом ${THOUGHT_EDIT_WINDOW_MIN} хв після запису.`,
+  delete_window_closed: `Видалити можна лише протягом ${THOUGHT_EDIT_WINDOW_MIN} хв після запису.`,
+  not_found: "Такого запиту немає.",
+  internal: "Внутрішня помилка сервера.",
+};
+
+/** Читає { error: code } з тіла невдалої відповіді й кидає ApiError з людським текстом. */
+async function throwApiError(res: Response, path: string): Promise<never> {
+  let code: string | null = null;
+  try {
+    const body = (await res.json()) as { error?: unknown };
+    if (typeof body.error === "string") code = body.error;
+  } catch {
+    // тіло не JSON — лишаємо code = null
+  }
+  const message = (code && ERROR_MESSAGES[code]) ?? `Запит ${path} повернув ${res.status}`;
+  throw new ApiError(message, res.status, code);
 }
 
 /**
@@ -53,11 +81,23 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    throw new ApiError(`Запит ${path} повернув ${res.status}`, res.status);
+    await throwApiError(res, path);
   }
 
   const json = (await res.json()) as unknown;
   return schema.parse(json);
+}
+
+/** Те саме для запитів без тіла відповіді (DELETE → 204). */
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: { Accept: "application/json", ...init?.headers },
+  });
+
+  if (!res.ok) {
+    await throwApiError(res, path);
+  }
 }
 
 export const api = {
@@ -77,14 +117,8 @@ export const api = {
     });
   },
 
-  async deleteSession(id: string): Promise<void> {
-    const res = await fetch(`${baseUrl}/sessions/${id}`, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) {
-      throw new ApiError(`Запит DELETE /sessions/${id} повернув ${res.status}`, res.status);
-    }
+  deleteSession(id: string): Promise<void> {
+    return requestVoid(`/sessions/${id}`, { method: "DELETE" });
   },
 
   getSession(id: string): Promise<SessionDetail> {
@@ -107,68 +141,47 @@ export const api = {
     });
   },
 
-  async deleteThought(id: string): Promise<void> {
-    const res = await fetch(`${baseUrl}/thoughts/${id}`, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) {
-      throw new ApiError(`Запит DELETE /thoughts/${id} повернув ${res.status}`, res.status);
-    }
+  deleteThought(id: string): Promise<void> {
+    return requestVoid(`/thoughts/${id}`, { method: "DELETE" });
   },
 
-  createIdea(input: CreateIdeaInput): Promise<IdeaDetail> {
-    return request(`/ideas`, ideaDetailSchema, {
+  createContext(input: CreateContextInput): Promise<ContextDetail> {
+    return request(`/contexts`, contextDetailSchema, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
   },
 
-  getIdeas(): Promise<IdeaListItem[]> {
-    return request(`/ideas`, ideaListSchema);
+  getContexts(): Promise<ContextListItem[]> {
+    return request(`/contexts`, contextListSchema);
   },
 
-  getIdea(id: string): Promise<IdeaDetail> {
-    return request(`/ideas/${id}`, ideaDetailSchema);
+  getContext(id: string): Promise<ContextDetail> {
+    return request(`/contexts/${id}`, contextDetailSchema);
   },
 
-  updateIdea(id: string, input: UpdateIdeaInput): Promise<IdeaDto> {
-    return request(`/ideas/${id}`, ideaDtoSchema, {
+  updateContext(id: string, input: UpdateContextInput): Promise<ContextDto> {
+    return request(`/contexts/${id}`, contextDtoSchema, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
   },
 
-  addThoughtToIdea(ideaId: string, input: AddThoughtToIdeaInput): Promise<IdeaDetail> {
-    return request(`/ideas/${ideaId}/thoughts`, ideaDetailSchema, {
+  addThoughtToContext(contextId: string, input: AddThoughtToContextInput): Promise<ContextDetail> {
+    return request(`/contexts/${contextId}/thoughts`, contextDetailSchema, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
   },
 
-  async removeThoughtFromIdea(ideaId: string, thoughtId: string): Promise<void> {
-    const res = await fetch(`${baseUrl}/ideas/${ideaId}/thoughts/${thoughtId}`, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) {
-      throw new ApiError(
-        `Запит DELETE /ideas/${ideaId}/thoughts/${thoughtId} повернув ${res.status}`,
-        res.status,
-      );
-    }
+  removeThoughtFromContext(contextId: string, thoughtId: string): Promise<void> {
+    return requestVoid(`/contexts/${contextId}/thoughts/${thoughtId}`, { method: "DELETE" });
   },
 
-  async deleteIdea(id: string): Promise<void> {
-    const res = await fetch(`${baseUrl}/ideas/${id}`, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) {
-      throw new ApiError(`Запит DELETE /ideas/${id} повернув ${res.status}`, res.status);
-    }
+  deleteContext(id: string): Promise<void> {
+    return requestVoid(`/contexts/${id}`, { method: "DELETE" });
   },
 };

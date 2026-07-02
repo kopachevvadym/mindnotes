@@ -9,18 +9,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ideaQuery } from "@/lib/queries";
-import { useDeleteIdea, useRemoveThoughtFromIdea, useUpdateIdea } from "@/lib/mutations";
+import { contextQuery } from "@/lib/queries";
+import { useDeleteContext, useRemoveThoughtFromContext, useUpdateContext } from "@/lib/mutations";
 import { pluralThoughts } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-interface IdeaPageProps {
-  ideaId: string;
+interface ContextPageProps {
+  contextId: string;
 }
 
-export function IdeaPage({ ideaId }: IdeaPageProps) {
-  const { data, isPending, isError, error } = useQuery(ideaQuery(ideaId));
-  const removeThought = useRemoveThoughtFromIdea(ideaId);
+export function ContextPage({ contextId }: ContextPageProps) {
+  const { data, isPending, isError, error } = useQuery(contextQuery(contextId));
+  const removeThought = useRemoveThoughtFromContext(contextId);
 
   if (isPending) {
     return <StatusNote>Завантаження…</StatusNote>;
@@ -30,7 +30,7 @@ export function IdeaPage({ ideaId }: IdeaPageProps) {
     return <StatusNote>Не вдалося завантажити ідею: {error.message}</StatusNote>;
   }
 
-  const { idea, thoughts } = data;
+  const { context, thoughts } = data;
 
   return (
     <div className="flex flex-1 flex-col pb-16">
@@ -38,9 +38,9 @@ export function IdeaPage({ ideaId }: IdeaPageProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. «Назад» — у каркасі. */}
-            <ThesisLede ideaId={ideaId} thesis={idea.thesis} />
+            <ThesisLede contextId={contextId} thesis={context.thesis} />
           </div>
-          <IdeaMenu ideaId={ideaId} />
+          <ContextMenu contextId={contextId} />
         </div>
 
         <p className="font-sans text-sm text-muted-foreground">{pluralThoughts(thoughts.length)}</p>
@@ -91,9 +91,9 @@ export function IdeaPage({ ideaId }: IdeaPageProps) {
 }
 
 /** Меню ідеї: видалення з простим підтвердженням. Думки при цьому лишаються в потоці. */
-function IdeaMenu({ ideaId }: { ideaId: string }) {
+function ContextMenu({ contextId }: { contextId: string }) {
   const [confirm, setConfirm] = useState(false);
-  const deleteIdea = useDeleteIdea();
+  const deleteContext = useDeleteContext();
 
   return (
     <>
@@ -132,8 +132,8 @@ function IdeaMenu({ ideaId }: { ideaId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => deleteIdea.mutate(ideaId)}
-                disabled={deleteIdea.isPending}
+                onClick={() => deleteContext.mutate(contextId)}
+                disabled={deleteContext.isPending}
                 className="rounded-md px-4 py-2 font-sans text-sm font-medium text-red-700 transition-colors hover:bg-red-700/10 disabled:opacity-50"
               >
                 Видалити
@@ -150,8 +150,8 @@ function IdeaMenu({ ideaId }: { ideaId: string }) {
  * Теза ідеї як редагований лід (патерн інлайн-редагування з SessionHeader).
  * Порожня → плейсхолдер «Сформулюй ідею…»; коміт → PATCH (оптимістично). Теза не обовʼязкова.
  */
-function ThesisLede({ ideaId, thesis }: { ideaId: string; thesis: string | null }) {
-  const updateIdea = useUpdateIdea(ideaId);
+function ThesisLede({ contextId, thesis }: { contextId: string; thesis: string | null }) {
+  const updateContext = useUpdateContext(contextId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -172,7 +172,7 @@ function ThesisLede({ ideaId, thesis }: { ideaId: string; thesis: string | null 
     setEditing(false);
     const next = draft.trim() === "" ? null : draft.trim();
     if (next !== thesis) {
-      updateIdea.mutate({ thesis: next });
+      updateContext.mutate({ thesis: next });
     }
   }
 

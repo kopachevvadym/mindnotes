@@ -38,29 +38,30 @@ export const thoughts = sqliteTable("thought", {
 });
 
 /**
- * Ідея — сутність із власною тезою (NULL, доки не сформульована). Росте знизу:
- * народжується з конкретної думки-насінини.
+ * Група думок на градієнті зрілості: порожня теза ⇒ «контекст» (тематична група),
+ * заповнена ⇒ «ідея». Один обʼєкт, НЕ окремі сутності. Росте знизу: народжується
+ * з конкретної думки-насінини.
  */
-export const ideas = sqliteTable("idea", {
+export const contexts = sqliteTable("context", {
   id: uuidPk(),
   thesis: text("thesis"),
   createdAt: tsNow("created_at"),
 });
 
-/** Зв'язок many-to-many: ідея ↔ думка. Складений ключ. */
-export const ideaThoughts = sqliteTable(
-  "idea_thought",
+/** Зв'язок many-to-many: контекст ↔ думка. Складений ключ. */
+export const contextThoughts = sqliteTable(
+  "context_thought",
   {
-    ideaId: text("idea_id")
+    contextId: text("context_id")
       .notNull()
-      .references(() => ideas.id, { onDelete: "cascade" }),
+      .references(() => contexts.id, { onDelete: "cascade" }),
     thoughtId: text("thought_id")
       .notNull()
       .references(() => thoughts.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.ideaId, t.thoughtId] })],
+  (t) => [primaryKey({ columns: [t.contextId, t.thoughtId] })],
 );
 
 export type SessionRow = typeof sessions.$inferSelect;
 export type ThoughtRow = typeof thoughts.$inferSelect;
-export type IdeaRow = typeof ideas.$inferSelect;
+export type ContextRow = typeof contexts.$inferSelect;

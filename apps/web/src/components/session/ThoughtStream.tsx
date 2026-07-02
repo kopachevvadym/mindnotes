@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  useCreateIdea,
+  useCreateContext,
   useDeleteThought,
   useEditThought,
   useSetThoughtArchived,
@@ -28,7 +28,7 @@ import {
   relativeThoughtTime,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { AddToIdeaPicker } from "./AddToIdeaPicker";
+import { AddToContextPicker } from "./AddToContextPicker";
 
 /** Поріг «відчутної» паузи між сусідніми думками (хвилини доби). */
 const PAUSE_THRESHOLD_MIN = 15;
@@ -58,7 +58,7 @@ interface ThoughtStreamProps {
 
 export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtStreamProps) {
   const setArchived = useSetThoughtArchived(sessionId);
-  const createIdea = useCreateIdea(sessionId);
+  const createContext = useCreateContext(sessionId);
   const editThought = useEditThought(sessionId);
   const deleteThought = useDeleteThought(sessionId);
 
@@ -200,7 +200,7 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
                     >
                       {thought.body}
                     </p>
-                    {thought.ideaId ? <IdeaMark ideaId={thought.ideaId} /> : null}
+                    {thought.contextId ? <ContextMark contextId={thought.contextId} /> : null}
                     <ThoughtTime rel={rel} title={fullTime} />
                   </>
                 )}
@@ -216,7 +216,7 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
                     <MoreVertical className="size-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => createIdea.mutate({ seedThoughtId: thought.id })}>
+                    <DropdownMenuItem onSelect={() => createContext.mutate({ seedThoughtId: thought.id })}>
                       Нова ідея
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setPickerThoughtId(thought.id)}>
@@ -248,7 +248,7 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
         );
       })}
     </ol>
-    <AddToIdeaPicker
+    <AddToContextPicker
       sessionId={sessionId}
       thoughtId={pickerThoughtId}
       onClose={() => setPickerThoughtId(null)}
@@ -258,12 +258,12 @@ export function ThoughtStream({ thoughts, sessionId, dimmed = false }: ThoughtSt
 }
 
 /** Тиха персистентна мітка-двері: веде на сторінку ідеї, яку живить ця думка. */
-function IdeaMark({ ideaId }: { ideaId: string }) {
+function ContextMark({ contextId }: { contextId: string }) {
   return (
     <div className="mt-1">
       <Link
-        to="/ideas/$ideaId"
-        params={{ ideaId }}
+        to="/contexts/$contextId"
+        params={{ contextId }}
         className="inline-flex items-center gap-1 font-sans text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
       >
         <Lightbulb className="size-3" aria-hidden />

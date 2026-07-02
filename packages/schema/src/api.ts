@@ -21,9 +21,9 @@ export const sessionDtoSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
 });
 
-/** Думка в межах сесії — з id однієї (найновішої) ідеї для мітки-дверей; null = не в ідеї. */
+/** Думка в межах сесії — з id одного (найновішого) контексту для мітки-дверей; null = поза контекстами. */
 export const sessionThoughtDtoSchema = thoughtDtoSchema.extend({
-  ideaId: z.uuid().nullable(),
+  contextId: z.uuid().nullable(),
 });
 
 /** GET /sessions/:id */
@@ -58,48 +58,48 @@ export const updateThoughtInputSchema = z.union([
   z.object({ body: z.string().trim().min(1) }),
 ]);
 
-/** Ідея — сутність із власною тезою (NULL, доки не сформульована). */
-export const ideaDtoSchema = z.object({
+/** Контекст/ідея — група з опційною тезою (NULL ⇒ контекст, заповнена ⇒ ідея). */
+export const contextDtoSchema = z.object({
   id: z.uuid(),
   thesis: z.string().nullable(),
   createdAt: z.iso.datetime({ offset: true }),
 });
 
-/** Думка-член ідеї — з джерелом (сесією). */
-export const ideaThoughtDtoSchema = thoughtDtoSchema.extend({
+/** Думка-член контексту — з джерелом (сесією). */
+export const contextThoughtDtoSchema = thoughtDtoSchema.extend({
   sessionTitle: z.string().nullable(),
 });
 
-/** POST /ideas — тіло запиту: думка-насінина. */
-export const createIdeaInputSchema = z.object({
+/** POST /contexts — тіло запиту: думка-насінина. */
+export const createContextInputSchema = z.object({
   seedThoughtId: z.uuid(),
 });
 
-/** POST /ideas/:id/thoughts — тіло запиту: наявна думка, яку втягуємо в наявну ідею. */
-export const addThoughtToIdeaInputSchema = z.object({
+/** POST /contexts/:id/thoughts — тіло запиту: наявна думка, яку втягуємо в наявний контекст. */
+export const addThoughtToContextInputSchema = z.object({
   thoughtId: z.uuid(),
 });
 
-/** PATCH /ideas/:id — тіло запиту. Теза ніколи не обовʼязкова (може бути null). */
-export const updateIdeaInputSchema = z.object({
+/** PATCH /contexts/:id — тіло запиту. Теза ніколи не обовʼязкова (може бути null). */
+export const updateContextInputSchema = z.object({
   thesis: z.string().nullable(),
 });
 
-/** POST /ideas та GET /ideas/:id — ідея разом з її думками (з джерелом). */
-export const ideaDetailSchema = z.object({
-  idea: ideaDtoSchema,
-  thoughts: z.array(ideaThoughtDtoSchema),
+/** POST /contexts та GET /contexts/:id — контекст разом з його думками (з джерелом). */
+export const contextDetailSchema = z.object({
+  context: contextDtoSchema,
+  thoughts: z.array(contextThoughtDtoSchema),
 });
 
-/** Елемент списку ідей (GET /ideas) — з агрегатом кількості думок. */
-export const ideaListItemSchema = z.object({
+/** Елемент списку контекстів (GET /contexts) — з агрегатом кількості думок. */
+export const contextListItemSchema = z.object({
   id: z.uuid(),
   thesis: z.string().nullable(),
   thoughtCount: z.number().int().nonnegative(),
   createdAt: z.iso.datetime({ offset: true }),
 });
 
-export const ideaListSchema = z.array(ideaListItemSchema);
+export const contextListSchema = z.array(contextListItemSchema);
 
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;
 export type SessionThoughtDto = z.infer<typeof sessionThoughtDtoSchema>;
@@ -109,10 +109,10 @@ export type SessionListItem = z.infer<typeof sessionListItemSchema>;
 export type CreateThoughtInput = z.infer<typeof createThoughtInputSchema>;
 export type UpdateThoughtInput = z.infer<typeof updateThoughtInputSchema>;
 export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>;
-export type IdeaDto = z.infer<typeof ideaDtoSchema>;
-export type IdeaThoughtDto = z.infer<typeof ideaThoughtDtoSchema>;
-export type IdeaDetail = z.infer<typeof ideaDetailSchema>;
-export type IdeaListItem = z.infer<typeof ideaListItemSchema>;
-export type CreateIdeaInput = z.infer<typeof createIdeaInputSchema>;
-export type AddThoughtToIdeaInput = z.infer<typeof addThoughtToIdeaInputSchema>;
-export type UpdateIdeaInput = z.infer<typeof updateIdeaInputSchema>;
+export type ContextDto = z.infer<typeof contextDtoSchema>;
+export type ContextThoughtDto = z.infer<typeof contextThoughtDtoSchema>;
+export type ContextDetail = z.infer<typeof contextDetailSchema>;
+export type ContextListItem = z.infer<typeof contextListItemSchema>;
+export type CreateContextInput = z.infer<typeof createContextInputSchema>;
+export type AddThoughtToContextInput = z.infer<typeof addThoughtToContextInputSchema>;
+export type UpdateContextInput = z.infer<typeof updateContextInputSchema>;

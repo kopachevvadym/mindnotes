@@ -1,12 +1,12 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { ideasQuery } from "@/lib/queries";
-import { useAddThoughtToIdea } from "@/lib/mutations";
+import { contextsQuery } from "@/lib/queries";
+import { useAddThoughtToContext } from "@/lib/mutations";
 import { formatSessionDate, pluralThoughts } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-interface AddToIdeaPickerProps {
+interface AddToContextPickerProps {
   sessionId: string;
   /** Думка, яку втягуємо в ідею; null = пікер закритий. */
   thoughtId: string | null;
@@ -17,20 +17,20 @@ interface AddToIdeaPickerProps {
  * Пікер «у наявну ідею»: пошук за тезою + список. Нуль-теза показується як «Без назви»
  * з датою (щоб тестові дублі були відрізнянні). Вибір → втягнути думку. Bottom-sheet, ~380px.
  */
-export function AddToIdeaPicker({ sessionId, thoughtId, onClose }: AddToIdeaPickerProps) {
+export function AddToContextPicker({ sessionId, thoughtId, onClose }: AddToContextPickerProps) {
   const open = thoughtId !== null;
   const [query, setQuery] = useState("");
-  const { data: ideas = [], isPending } = useQuery({ ...ideasQuery(), enabled: open });
-  const addThought = useAddThoughtToIdea(sessionId);
+  const { data: contexts = [], isPending } = useQuery({ ...contextsQuery(), enabled: open });
+  const addThought = useAddThoughtToContext(sessionId);
 
   const trimmed = query.trim().toLowerCase();
   const matches = trimmed
-    ? ideas.filter((i) => (i.thesis ?? "").toLowerCase().includes(trimmed))
-    : ideas;
+    ? contexts.filter((i) => (i.thesis ?? "").toLowerCase().includes(trimmed))
+    : contexts;
 
-  function pick(ideaId: string) {
+  function pick(contextId: string) {
     if (!thoughtId) return;
-    addThought.mutate({ ideaId, thoughtId });
+    addThought.mutate({ contextId, thoughtId });
     onClose();
   }
 
@@ -68,27 +68,27 @@ export function AddToIdeaPicker({ sessionId, thoughtId, onClose }: AddToIdeaPick
             </p>
           ) : matches.length === 0 ? (
             <p className="px-1 py-6 text-center font-sans text-sm text-muted-foreground">
-              {ideas.length === 0 ? "Ще немає ідей — створи нову." : "Нічого не знайдено."}
+              {contexts.length === 0 ? "Ще немає ідей — створи нову." : "Нічого не знайдено."}
             </p>
           ) : (
             <ul className="-mx-1 mt-2 overflow-y-auto">
-              {matches.map((idea) => (
-                <li key={idea.id}>
+              {matches.map((context) => (
+                <li key={context.id}>
                   <button
                     type="button"
-                    onClick={() => pick(idea.id)}
+                    onClick={() => pick(context.id)}
                     className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent/50"
                   >
                     <span
                       className={cn(
                         "font-serif text-base leading-snug",
-                        idea.thesis ? "text-foreground" : "italic text-muted-foreground",
+                        context.thesis ? "text-foreground" : "italic text-muted-foreground",
                       )}
                     >
-                      {idea.thesis ?? "Без назви"}
+                      {context.thesis ?? "Без назви"}
                     </span>
                     <span className="font-sans text-xs text-muted-foreground">
-                      {formatSessionDate(idea.createdAt)} · {pluralThoughts(idea.thoughtCount)}
+                      {formatSessionDate(context.createdAt)} · {pluralThoughts(context.thoughtCount)}
                     </span>
                   </button>
                 </li>

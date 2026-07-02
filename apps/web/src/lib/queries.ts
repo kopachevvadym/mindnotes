@@ -14,14 +14,14 @@ export const sessionQuery = (id: string) =>
     queryFn: () => api.getSession(id),
   });
 
-export const ideasQuery = () =>
+export const contextsQuery = () =>
   queryOptions({
-    queryKey: ["ideas"],
-    queryFn: () => api.getIdeas(),
+    queryKey: ["contexts"],
+    queryFn: () => api.getContexts(),
   });
 
-export const ideaQuery = (id: string) =>
+export const contextQuery = (id: string) =>
   queryOptions({
-    queryKey: ["idea", id],
-    queryFn: () => api.getIdea(id),
+    queryKey: ["context", id],
+    queryFn: () => api.getContext(id),
   });
