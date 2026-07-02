@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ContextDetail, ContextDto, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
-import { api } from "./api-client";
+import { api, ApiError } from "./api-client";
 import { contextQuery, contextsQuery, sessionQuery, sessionsQuery } from "./queries";
 
 interface SessionCacheContext {
@@ -11,7 +11,8 @@ interface SessionCacheContext {
 /**
  * Захоплення думки з оптимістичним оновленням. Думка одразу зʼявляється в кінці
  * потоку (хронологія: найновіше внизу), щоб захоплення відчувалося миттєвим.
- * onError — відкат; onSettled — реконсайл зі справжнім id/часом із бекенда.
+ * Мережеві/серверні збої тихо ретраяться двічі — користувач дивиться в книжку,
+ * а не на екран. onError — відкат; onSettled — реконсайл зі справжнім id/часом.
  */
 export function useCreateThought(sessionId: string) {
   const queryClient = useQueryClient();
@@ -19,6 +20,10 @@ export function useCreateThought(sessionId: string) {
 
   return useMutation<ThoughtDto, Error, string, SessionCacheContext>({
     mutationFn: (body) => api.createThought(sessionId, { body }),
+
+    // 4xx не ретраїмо — це помилка запиту, а не збій.
+    retry: (failureCount, error) =>
+      failureCount < 2 && (!(error instanceof ApiError) || error.status >= 500),
 
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey });

@@ -21,6 +21,8 @@ const MAX_ROWS = 5;
  */
 export function CaptureBar({ sessionId, isEmptySession, onFocusChange }: CaptureBarProps) {
   const [text, setText] = useState("");
+  // Останній сабміт не зберігся (після ретраїв) — показуємо чесний індикатор.
+  const [saveFailed, setSaveFailed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const createThought = useCreateThought(sessionId);
 
@@ -38,8 +40,14 @@ export function CaptureBar({ sessionId, isEmptySession, onFocusChange }: Capture
     const body = text.trim();
     if (!body) return; // порожнє — no-op
     setText(""); // очищаємо одразу, фокус лишається
+    setSaveFailed(false);
     createThought.mutate(body, {
-      onError: () => setText(body), // тихо повертаємо текст, щоб думка не загубилась
+      // Повертаємо текст у поле І показуємо індикатор — «тихе» повернення
+      // легко не помітити, коли очі в книжці.
+      onError: () => {
+        setText(body);
+        setSaveFailed(true);
+      },
     });
   }
 
@@ -72,9 +80,15 @@ export function CaptureBar({ sessionId, isEmptySession, onFocusChange }: Capture
           <CaptureNavMenu sessionId={sessionId} isEmptySession={isEmptySession} />
         </div>
 
-        <p className="mt-3 font-mono text-xs text-muted-foreground">
-          Enter — наступна · Shift+Enter — новий рядок
-        </p>
+        {saveFailed ? (
+          <p role="alert" className="mt-3 font-mono text-xs text-red-700">
+            Не збереглося — текст повернуто в поле. Enter — спробувати ще раз
+          </p>
+        ) : (
+          <p className="mt-3 font-mono text-xs text-muted-foreground">
+            Enter — наступна · Shift+Enter — новий рядок
+          </p>
+        )}
       </div>
     </div>
   );
