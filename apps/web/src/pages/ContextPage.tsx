@@ -37,7 +37,7 @@ export function ContextPage({ contextId }: ContextPageProps) {
       <header className="space-y-4 pt-8 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. «Назад» — у каркасі. */}
+            {/* Теза-лід: порожня → плейсхолдер; клік → інлайн-редагування. «Назад» — лінк «Ідеї» в навігації каркаса. */}
             <ThesisLede contextId={contextId} thesis={context.thesis} />
           </div>
           <ContextMenu contextId={contextId} />
