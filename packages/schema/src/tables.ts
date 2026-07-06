@@ -62,6 +62,19 @@ export const contextThoughts = sqliteTable(
   (t) => [primaryKey({ columns: [t.contextId, t.thoughtId] })],
 );
 
+/**
+ * Читацький інтервал (reading span) — таймований відрізок реального читання.
+ * ГЛОБАЛЬНИЙ: без FK до сесії-контейнера; думки належать спанові неявно
+ * (created_at ∈ [started_at, ended_at]). ended_at NULL ⇒ таймер іде (активний один).
+ */
+export const readingSpans = sqliteTable("reading_span", {
+  id: uuidPk(),
+  startedAt: tsNow("started_at"),
+  endedAt: integer("ended_at", { mode: "timestamp_ms" }),
+  createdAt: tsNow("created_at"),
+});
+
 export type SessionRow = typeof sessions.$inferSelect;
 export type ThoughtRow = typeof thoughts.$inferSelect;
 export type ContextRow = typeof contexts.$inferSelect;
+export type ReadingSpanRow = typeof readingSpans.$inferSelect;

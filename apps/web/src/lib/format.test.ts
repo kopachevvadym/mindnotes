@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { minutesAgo, pluralThoughts, relativeThoughtTime } from "./format";
+import {
+  formatDurationMin,
+  formatTimerClock,
+  minutesAgo,
+  pluralThoughts,
+  relativeThoughtTime,
+} from "./format";
 
 describe("pluralThoughts", () => {
   test.each([
@@ -34,6 +40,32 @@ describe("relativeThoughtTime", () => {
 
   test("понад 2 години → точний час", () => {
     expect(relativeThoughtTime(121, "14:19")).toBe("14:19");
+  });
+});
+
+describe("formatDurationMin", () => {
+  test.each([
+    [0, "1 хв"],
+    [1, "1 хв"],
+    [43, "43 хв"],
+    [60, "1 год"],
+    [65, "1 год 5 хв"],
+    [125, "2 год 5 хв"],
+  ])("%i хв → %s", (min, expected) => {
+    expect(formatDurationMin(min)).toBe(expected);
+  });
+});
+
+describe("formatTimerClock", () => {
+  test.each([
+    [0, "00:00"],
+    [5_000, "00:05"],
+    [65_000, "01:05"],
+    [59 * 60_000 + 59_000, "59:59"],
+    [60 * 60_000, "1:00"],
+    [125 * 60_000, "2:05"],
+  ])("%i мс → %s", (ms, expected) => {
+    expect(formatTimerClock(ms)).toBe(expected);
   });
 });
 

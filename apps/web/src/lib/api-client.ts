@@ -23,6 +23,14 @@ import {
   type CreateContextInput,
   type AddThoughtToContextInput,
   type UpdateContextInput,
+  readingSpanDtoSchema,
+  readingSpanListSchema,
+  activeReadingSpanSchema,
+  stopReadingSpanResultSchema,
+  type ReadingSpanDto,
+  type ActiveReadingSpan,
+  type StopReadingSpanResult,
+  type UpdateReadingSpanInput,
 } from "@mindnotes/schema";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -53,6 +61,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   delete_window_closed: `Видалити можна лише протягом ${THOUGHT_EDIT_WINDOW_MIN} хв після запису.`,
   not_found: "Такого запиту немає.",
   internal: "Внутрішня помилка сервера.",
+  no_active_span: "Читання вже зупинено.",
+  reading_span_not_found: "Інтервал читання не знайдено.",
+  invalid_span_range: "Кінець читання має бути пізніше за початок.",
+  overlapping_span: "Інтервали читання не можуть перетинатися.",
 };
 
 /** Читає { error: code } з тіла невдалої відповіді й кидає ApiError з людським текстом. */
@@ -189,5 +201,37 @@ export const api = {
 
   deleteContext(id: string): Promise<void> {
     return requestVoid(`/contexts/${id}`, { method: "DELETE" });
+  },
+
+  startReadingSpan(): Promise<ReadingSpanDto> {
+    return request(`/reading-spans/start`, readingSpanDtoSchema, { method: "POST" });
+  },
+
+  stopReadingSpan(): Promise<StopReadingSpanResult> {
+    return request(`/reading-spans/stop`, stopReadingSpanResultSchema, { method: "POST" });
+  },
+
+  getActiveReadingSpan(): Promise<ActiveReadingSpan> {
+    return request(`/reading-spans/active`, activeReadingSpanSchema);
+  },
+
+  getReadingSpans(from?: string, to?: string): Promise<ReadingSpanDto[]> {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.size > 0 ? `?${params.toString()}` : "";
+    return request(`/reading-spans${qs}`, readingSpanListSchema);
+  },
+
+  updateReadingSpan(id: string, input: UpdateReadingSpanInput): Promise<ReadingSpanDto> {
+    return request(`/reading-spans/${id}`, readingSpanDtoSchema, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  },
+
+  deleteReadingSpan(id: string): Promise<void> {
+    return requestVoid(`/reading-spans/${id}`, { method: "DELETE" });
   },
 };

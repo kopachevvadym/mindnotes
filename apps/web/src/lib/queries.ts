@@ -31,3 +31,17 @@ export const searchQuery = (q: string) =>
     queryKey: ["search", q],
     queryFn: () => api.search(q),
   });
+
+/** Активний читацький інтервал (стан кнопки таймера; переживає рефреш). */
+export const activeSpanQuery = () =>
+  queryOptions({
+    queryKey: ["reading-spans", "active"],
+    queryFn: () => api.getActiveReadingSpan(),
+  });
+
+/** Спани, що перетинають вікно потоку [from, to] (для рендера груп у потоці). */
+export const spansQuery = (from?: string, to?: string) =>
+  queryOptions({
+    queryKey: ["reading-spans", "list", from ?? "all", to ?? "open"],
+    queryFn: () => api.getReadingSpans(from, to),
+  });

@@ -134,6 +134,42 @@ export const searchResultsSchema = z.object({
   ),
 });
 
+/** Читацький інтервал. endedAt NULL ⇒ таймер іде. */
+export const readingSpanDtoSchema = z.object({
+  id: z.uuid(),
+  startedAt: z.iso.datetime({ offset: true }),
+  endedAt: z.iso.datetime({ offset: true }).nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+
+export const readingSpanListSchema = z.array(readingSpanDtoSchema);
+
+/** GET /reading-spans/active → активний спан або null (відновлення кнопки після рефреша). */
+export const activeReadingSpanSchema = z.object({
+  span: readingSpanDtoSchema.nullable(),
+});
+
+/** POST /reading-spans/stop → discarded=true, якщо читання < порога і спан видалено. */
+export const stopReadingSpanResultSchema = z.object({
+  discarded: z.boolean(),
+  span: readingSpanDtoSchema.nullable(),
+});
+
+/** PATCH /reading-spans/:id — початок та/або кінець (ISO). Тривалість — похідна, не зберігається. */
+export const updateReadingSpanInputSchema = z
+  .object({
+    startedAt: z.iso.datetime({ offset: true }).optional(),
+    endedAt: z.iso.datetime({ offset: true }).optional(),
+  })
+  .refine((v) => v.startedAt !== undefined || v.endedAt !== undefined, {
+    message: "потрібне бодай одне поле",
+  });
+
+export type ReadingSpanDto = z.infer<typeof readingSpanDtoSchema>;
+export type ActiveReadingSpan = z.infer<typeof activeReadingSpanSchema>;
+export type StopReadingSpanResult = z.infer<typeof stopReadingSpanResultSchema>;
+export type UpdateReadingSpanInput = z.infer<typeof updateReadingSpanInputSchema>;
+
 export type SearchResults = z.infer<typeof searchResultsSchema>;
 
 export type ThoughtDto = z.infer<typeof thoughtDtoSchema>;

@@ -1,8 +1,26 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { ContextDetail, ContextDto, SessionDetail, SessionDto, ThoughtDto } from "@mindnotes/schema";
+import type {
+  ContextDetail,
+  ContextDto,
+  ReadingSpanDto,
+  SessionDetail,
+  SessionDto,
+  StopReadingSpanResult,
+  ThoughtDto,
+  UpdateReadingSpanInput,
+} from "@mindnotes/schema";
 import { api, ApiError } from "./api-client";
-import { contextQuery, contextsQuery, sessionQuery, sessionsQuery } from "./queries";
+import {
+  activeSpanQuery,
+  contextQuery,
+  contextsQuery,
+  sessionQuery,
+  sessionsQuery,
+} from "./queries";
+
+/** Часткий ключ усіх діапазонних кешів спанів (["reading-spans","list", from]). */
+const SPANS_LIST_KEY = ["reading-spans", "list"] as const;
 
 interface SessionCacheContext {
   previous: SessionDetail | undefined;
@@ -403,6 +421,119 @@ export function useDeleteContext() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contextsQuery().queryKey });
       void navigate({ to: "/contexts" });
+    },
+  });
+}
+
+/**
+ * Старт читання. Ідемпотентний на бекенді (повторний старт повертає активний спан),
+ * тож без оптимізму: кладемо відповідь у кеш активного і реконсайлимо список.
+ */
+export function useStartSpan() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ReadingSpanDto, Error, void>({
+    mutationFn: () => api.startReadingSpan(),
+    onSuccess: (span) => {
+      queryClient.setQueryData(activeSpanQuery().queryKey, { span });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: SPANS_LIST_KEY });
+      void queryClient.invalidateQueries({ queryKey: activeSpanQuery().queryKey });
+    },
+  });
+}
+
+/**
+ * Стоп читання. Відповідь несе discarded (коротке читання видалено) — рішення про тост
+ * ухвалює компонент. Кеш активного чистимо одразу, список — реконсайл.
+ */
+export function useStopSpan() {
+  const queryClient = useQueryClient();
+
+  return useMutation<StopReadingSpanResult, Error, void>({
+    mutationFn: () => api.stopReadingSpan(),
+    onSuccess: () => {
+      queryClient.setQueryData(activeSpanQuery().queryKey, { span: null });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: SPANS_LIST_KEY });
+      void queryClient.invalidateQueries({ queryKey: activeSpanQuery().queryKey });
+    },
+  });
+}
+
+interface SpansCacheContext {
+  previous: Array<[readonly unknown[], ReadingSpanDto[] | undefined]>;
+}
+
+/**
+ * Редагування меж інтервалу з оптимістичним оновленням в УСІХ діапазонних кешах
+ * (ключі відрізняються за from). onError — відкат; onSettled — реконсайл.
+ */
+export function useUpdateSpan() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ReadingSpanDto, Error, { id: string } & UpdateReadingSpanInput, SpansCacheContext>({
+    mutationFn: ({ id, ...input }) => api.updateReadingSpan(id, input),
+
+    onMutate: async ({ id, startedAt, endedAt }) => {
+      await queryClient.cancelQueries({ queryKey: SPANS_LIST_KEY });
+      const previous = queryClient.getQueriesData<ReadingSpanDto[]>({ queryKey: SPANS_LIST_KEY });
+
+      queryClient.setQueriesData<ReadingSpanDto[]>({ queryKey: SPANS_LIST_KEY }, (old) =>
+        old?.map((s) =>
+          s.id === id
+            ? { ...s, startedAt: startedAt ?? s.startedAt, endedAt: endedAt ?? s.endedAt }
+            : s,
+        ),
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      for (const [key, data] of context?.previous ?? []) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: SPANS_LIST_KEY });
+    },
+  });
+}
+
+/**
+ * Видалення інтервалу (думки лишаються в потоці) з оптимістичним прибиранням
+ * з усіх діапазонних кешів. onError — відкат; onSettled — реконсайл.
+ */
+export function useDeleteSpan() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, string, SpansCacheContext>({
+    mutationFn: (id) => api.deleteReadingSpan(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: SPANS_LIST_KEY });
+      const previous = queryClient.getQueriesData<ReadingSpanDto[]>({ queryKey: SPANS_LIST_KEY });
+
+      queryClient.setQueriesData<ReadingSpanDto[]>({ queryKey: SPANS_LIST_KEY }, (old) =>
+        old?.filter((s) => s.id !== id),
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      for (const [key, data] of context?.previous ?? []) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: SPANS_LIST_KEY });
+      void queryClient.invalidateQueries({ queryKey: activeSpanQuery().queryKey });
     },
   });
 }

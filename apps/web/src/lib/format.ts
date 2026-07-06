@@ -79,3 +79,27 @@ export function relativeThoughtTime(agoMin: number, exactTime: string): string {
   if (agoMin <= 120) return pluralMinutesAgo(agoMin);
   return exactTime;
 }
+
+/** Тривалість читання людською мовою: «43 хв», «1 год», «1 год 5 хв». */
+export function formatDurationMin(totalMin: number): string {
+  const clamped = Math.max(1, Math.round(totalMin));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  if (h > 0) return m > 0 ? `${h} год ${m} хв` : `${h} год`;
+  return `${clamped} хв`;
+}
+
+/** Живий лічильник таймера: до години — «мм:сс», від години — «г:хх». */
+export function formatTimerClock(elapsedMs: number): string {
+  const totalSec = Math.max(0, Math.floor(elapsedMs / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** Хвилини між двома ISO-мітками (мінімум 0, заокруглено вниз). */
+export function minutesBetween(startIso: string, endIso: string): number {
+  return Math.max(0, Math.floor((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000));
+}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useUpdateSession } from "@/lib/mutations";
 import { useSearchStore } from "@/store/search-store";
 import { formatSessionDate, pluralThoughts } from "@/lib/format";
+import { ReadingTimer } from "./ReadingTimer";
 
 interface SessionHeaderProps {
   session: SessionDto;
@@ -87,15 +88,19 @@ export function SessionHeader({ session, activeCount, archivedCount }: SessionHe
         )}
 
         {!editing ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Пошук (⌘K)"
-            onClick={() => openSearch(true)}
-            className="-mr-2 shrink-0 text-muted-foreground"
-          >
-            <Search />
-          </Button>
+          <div className="-mr-2 flex shrink-0 items-center gap-1">
+            {/* Таймер читання — ліворуч від пошуку */}
+            <ReadingTimer />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Пошук (⌘K)"
+              onClick={() => openSearch(true)}
+              className="shrink-0 text-muted-foreground"
+            >
+              <Search />
+            </Button>
+          </div>
         ) : null}
       </div>
 

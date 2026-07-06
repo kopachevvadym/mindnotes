@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, lte, ne, or } from "drizzle-orm";
 import {
   sessions,
   thoughts,
   contexts,
   contextThoughts,
+  readingSpans,
   sessionDtoSchema,
   sessionDetailSchema,
   sessionListSchema,
@@ -20,11 +21,23 @@ import {
   contextListSchema,
   thoughtDtoSchema,
   searchResultsSchema,
+  readingSpanDtoSchema,
+  readingSpanListSchema,
+  activeReadingSpanSchema,
+  stopReadingSpanResultSchema,
+  updateReadingSpanInputSchema,
   THOUGHT_EDIT_WINDOW_MIN,
+  READING_SPAN_MIN_MIN,
 } from "@mindnotes/schema";
+import { z } from "zod";
 import { db } from "./db";
 import { env } from "./env";
-import { serializeSession, serializeThought, serializeContext } from "./serialize";
+import {
+  serializeSession,
+  serializeThought,
+  serializeContext,
+  serializeReadingSpan,
+} from "./serialize";
 
 /** Вікно (від створення), у якому думку ще можна редагувати/видалити. */
 const EDIT_WINDOW_MS = THOUGHT_EDIT_WINDOW_MIN * 60_000;
@@ -505,6 +518,153 @@ app.delete("/contexts/:id", async (c) => {
     tx.delete(contextThoughts).where(eq(contextThoughts.contextId, id)).run();
     tx.delete(contexts).where(eq(contexts.id, id)).run();
   });
+
+  return c.body(null, 204);
+});
+
+/** Активний читацький інтервал (ended_at IS NULL) або undefined. */
+async function findActiveSpan() {
+  const [row] = await db
+    .select()
+    .from(readingSpans)
+    .where(isNull(readingSpans.endedAt))
+    .orderBy(desc(readingSpans.startedAt))
+    .limit(1);
+  return row;
+}
+
+// POST /reading-spans/start → ідемпотентно: якщо активний уже є — повертаємо його
+app.post("/reading-spans/start", async (c) => {
+  const active = await findActiveSpan();
+  if (active) {
+    return c.json(readingSpanDtoSchema.parse(serializeReadingSpan(active)));
+  }
+
+  const [row] = await db.insert(readingSpans).values({}).returning();
+  return c.json(readingSpanDtoSchema.parse(serializeReadingSpan(row!)), 201);
+});
+
+// POST /reading-spans/stop → закрити активний. Коротше за поріг — видалити (discarded).
+// Нема активного → 404 no_active_span (обрано явну помилку: клієнт просто рефетчить стан).
+app.post("/reading-spans/stop", async (c) => {
+  const active = await findActiveSpan();
+  if (!active) {
+    return c.json({ error: "no_active_span" }, 404);
+  }
+
+  const now = new Date();
+  const durationMin = (now.getTime() - active.startedAt.getTime()) / 60_000;
+
+  if (durationMin < READING_SPAN_MIN_MIN) {
+    await db.delete(readingSpans).where(eq(readingSpans.id, active.id));
+    return c.json(stopReadingSpanResultSchema.parse({ discarded: true, span: null }));
+  }
+
+  const [row] = await db
+    .update(readingSpans)
+    .set({ endedAt: now })
+    .where(eq(readingSpans.id, active.id))
+    .returning();
+
+  return c.json(
+    stopReadingSpanResultSchema.parse({ discarded: false, span: serializeReadingSpan(row!) }),
+  );
+});
+
+// GET /reading-spans/active → { span | null } (відновлення стану кнопки після рефреша)
+app.get("/reading-spans/active", async (c) => {
+  const active = await findActiveSpan();
+  return c.json(
+    activeReadingSpanSchema.parse({ span: active ? serializeReadingSpan(active) : null }),
+  );
+});
+
+const spansRangeQuerySchema = z.object({
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+});
+
+// GET /reading-spans?from=&to= → спани, що ПЕРЕТИНАЮТЬ діапазон (для рендера в потоці).
+// Активний (ended_at NULL) вважається відкритим досі, тож перетинає будь-який from ≤ зараз.
+app.get("/reading-spans", async (c) => {
+  const parsed = spansRangeQuerySchema.safeParse({
+    from: c.req.query("from"),
+    to: c.req.query("to"),
+  });
+  if (!parsed.success) {
+    return c.json({ error: "invalid_query" }, 400);
+  }
+
+  const conds = [];
+  if (parsed.data.from) {
+    const from = new Date(parsed.data.from);
+    conds.push(or(isNull(readingSpans.endedAt), gte(readingSpans.endedAt, from)));
+  }
+  if (parsed.data.to) {
+    conds.push(lte(readingSpans.startedAt, new Date(parsed.data.to)));
+  }
+
+  const rows = await db
+    .select()
+    .from(readingSpans)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(asc(readingSpans.startedAt));
+
+  return c.json(readingSpanListSchema.parse(rows.map(serializeReadingSpan)));
+});
+
+// PATCH /reading-spans/:id → редагувати started_at та/або ended_at; валідність: кінець > початок
+app.patch("/reading-spans/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const json = await c.req.json().catch(() => null);
+  const parsed = updateReadingSpanInputSchema.safeParse(json);
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  const [existing] = await db.select().from(readingSpans).where(eq(readingSpans.id, id)).limit(1);
+  if (!existing) {
+    return c.json({ error: "reading_span_not_found" }, 404);
+  }
+
+  const startedAt = parsed.data.startedAt ? new Date(parsed.data.startedAt) : existing.startedAt;
+  const endedAt = parsed.data.endedAt ? new Date(parsed.data.endedAt) : existing.endedAt;
+
+  if (endedAt && endedAt.getTime() <= startedAt.getTime()) {
+    return c.json({ error: "invalid_span_range" }, 400);
+  }
+
+  // Інваріант «спани не перетинаються»: редагування меж не сміє наїхати на сусіда.
+  const others = await db.select().from(readingSpans).where(ne(readingSpans.id, id));
+  const myStart = startedAt.getTime();
+  const myEnd = endedAt ? endedAt.getTime() : Infinity;
+  const overlaps = others.some((o) => {
+    const oStart = o.startedAt.getTime();
+    const oEnd = o.endedAt ? o.endedAt.getTime() : Infinity;
+    return oStart < myEnd && oEnd > myStart;
+  });
+  if (overlaps) {
+    return c.json({ error: "overlapping_span" }, 400);
+  }
+
+  const [row] = await db
+    .update(readingSpans)
+    .set({ startedAt, endedAt })
+    .where(eq(readingSpans.id, id))
+    .returning();
+
+  return c.json(readingSpanDtoSchema.parse(serializeReadingSpan(row!)));
+});
+
+// DELETE /reading-spans/:id → видалити інтервал (думки не чіпає — вони живуть у сесіях)
+app.delete("/reading-spans/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const [row] = await db.delete(readingSpans).where(eq(readingSpans.id, id)).returning();
+  if (!row) {
+    return c.json({ error: "reading_span_not_found" }, 404);
+  }
 
   return c.body(null, 204);
 });

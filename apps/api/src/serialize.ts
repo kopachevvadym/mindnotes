@@ -2,9 +2,11 @@ import type {
   SessionRow,
   ThoughtRow,
   ContextRow,
+  ReadingSpanRow,
   SessionDto,
   ThoughtDto,
   ContextDto,
+  ReadingSpanDto,
 } from "@mindnotes/schema";
 
 /** Перетворюємо рядки drizzle (з Date) у DTO з ISO-рядками. */
@@ -31,6 +33,15 @@ export function serializeContext(row: ContextRow): ContextDto {
   return {
     id: row.id,
     thesis: row.thesis,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export function serializeReadingSpan(row: ReadingSpanRow): ReadingSpanDto {
+  return {
+    id: row.id,
+    startedAt: row.startedAt.toISOString(),
+    endedAt: row.endedAt ? row.endedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
