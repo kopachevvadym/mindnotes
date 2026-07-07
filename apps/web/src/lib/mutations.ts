@@ -432,8 +432,8 @@ export function useDeleteContext() {
 export function useStartSpan() {
   const queryClient = useQueryClient();
 
-  return useMutation<ReadingSpanDto, Error, void>({
-    mutationFn: () => api.startReadingSpan(),
+  return useMutation<ReadingSpanDto, Error, string | undefined>({
+    mutationFn: (sessionId) => api.startReadingSpan(sessionId),
     onSuccess: (span) => {
       queryClient.setQueryData(activeSpanQuery().queryKey, { span });
     },

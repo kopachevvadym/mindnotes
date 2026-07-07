@@ -69,6 +69,9 @@ export const contextThoughts = sqliteTable(
  */
 export const readingSpans = sqliteTable("reading_span", {
   id: uuidPk(),
+  // Сесія, у якій стартував таймер — слід «чиє це читання» (не жорсткий FK: при
+  // видаленні сесії інтервал лишається як глобальний сирота). NULL = без прив'язки.
+  sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
   startedAt: tsNow("started_at"),
   endedAt: integer("ended_at", { mode: "timestamp_ms" }),
   createdAt: tsNow("created_at"),

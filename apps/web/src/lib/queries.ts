@@ -39,9 +39,9 @@ export const activeSpanQuery = () =>
     queryFn: () => api.getActiveReadingSpan(),
   });
 
-/** Спани, що перетинають вікно потоку [from, to] (для рендера груп у потоці). */
-export const spansQuery = (from?: string, to?: string) =>
+/** Інтервали читання, привʼязані до сесії (для рендера груп у потоці). */
+export const spansQuery = (sessionId: string) =>
   queryOptions({
-    queryKey: ["reading-spans", "list", from ?? "all", to ?? "open"],
-    queryFn: () => api.getReadingSpans(from, to),
+    queryKey: ["reading-spans", "list", sessionId],
+    queryFn: () => api.getReadingSpans(sessionId),
   });

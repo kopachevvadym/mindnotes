@@ -203,8 +203,12 @@ export const api = {
     return requestVoid(`/contexts/${id}`, { method: "DELETE" });
   },
 
-  startReadingSpan(): Promise<ReadingSpanDto> {
-    return request(`/reading-spans/start`, readingSpanDtoSchema, { method: "POST" });
+  startReadingSpan(sessionId?: string): Promise<ReadingSpanDto> {
+    return request(`/reading-spans/start`, readingSpanDtoSchema, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sessionId ?? null }),
+    });
   },
 
   stopReadingSpan(): Promise<StopReadingSpanResult> {
@@ -215,12 +219,11 @@ export const api = {
     return request(`/reading-spans/active`, activeReadingSpanSchema);
   },
 
-  getReadingSpans(from?: string, to?: string): Promise<ReadingSpanDto[]> {
-    const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    const qs = params.size > 0 ? `?${params.toString()}` : "";
-    return request(`/reading-spans${qs}`, readingSpanListSchema);
+  getReadingSpans(sessionId: string): Promise<ReadingSpanDto[]> {
+    return request(
+      `/reading-spans?sessionId=${encodeURIComponent(sessionId)}`,
+      readingSpanListSchema,
+    );
   },
 
   updateReadingSpan(id: string, input: UpdateReadingSpanInput): Promise<ReadingSpanDto> {

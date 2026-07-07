@@ -1,0 +1,1 @@
+ALTER TABLE `reading_span` ADD `session_id` text REFERENCES session(id) ON DELETE set null;

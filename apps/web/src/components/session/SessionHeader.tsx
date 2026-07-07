@@ -90,7 +90,7 @@ export function SessionHeader({ session, activeCount, archivedCount }: SessionHe
         {!editing ? (
           <div className="-mr-2 flex shrink-0 items-center gap-1">
             {/* Таймер читання — ліворуч від пошуку */}
-            <ReadingTimer />
+            <ReadingTimer sessionId={session.id} />
             <Button
               variant="ghost"
               size="icon"

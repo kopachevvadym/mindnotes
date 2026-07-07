@@ -17,37 +17,18 @@ export function SessionPage({ sessionId }: SessionPageProps) {
   // Фокус поля захоплення приглушує потік.
   const [isCapturing, setIsCapturing] = useState(false);
 
-  // Вікно потоку для спанів: [початок сесії чи найраніша думка … кінець ДНЯ останньої
-  // активності]. Верхня межа зрізає чужі пізніші читання зі старих сесій; активний спан
-  // (поточне читання) домішується окремо — він показується там, де користувач зараз пише.
-  const firstThoughtAt = data?.thoughts[0]?.createdAt;
-  const lastThoughtAt = data?.thoughts[data.thoughts.length - 1]?.createdAt;
-  const spansFrom =
-    data === undefined
-      ? undefined
-      : firstThoughtAt && firstThoughtAt < data.session.startedAt
-        ? firstThoughtAt
-        : data.session.startedAt;
-  const spansTo =
-    data === undefined
-      ? undefined
-      : endOfLocalDayIso(
-          lastThoughtAt && lastThoughtAt > data.session.startedAt
-            ? lastThoughtAt
-            : data.session.startedAt,
-        );
-  const { data: rangeSpans = [] } = useQuery({
-    ...spansQuery(spansFrom, spansTo),
-    enabled: spansFrom !== undefined,
-  });
+  // Інтервали читання ЦІЄЇ сесії (привʼязані за session_id) — будь-якого дня.
+  // Активний домішуємо, лише якщо він належить цій сесії (миттєва «читання триває»
+  // ще до реконсайлу списку).
+  const { data: ownSpans = [] } = useQuery(spansQuery(sessionId));
   const { data: activeData } = useQuery(activeSpanQuery());
-  const activeSpan = activeData?.span ?? null;
+  const active = activeData?.span ?? null;
   const spans =
-    activeSpan && !rangeSpans.some((s) => s.id === activeSpan.id)
-      ? [...rangeSpans, activeSpan].sort(
+    active && active.sessionId === sessionId && !ownSpans.some((s) => s.id === active.id)
+      ? [...ownSpans, active].sort(
           (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
         )
-      : rangeSpans;
+      : ownSpans;
 
   if (isPending) {
     return <StatusNote>Завантаження…</StatusNote>;
@@ -90,13 +71,6 @@ export function SessionPage({ sessionId }: SessionPageProps) {
       />
     </div>
   );
-}
-
-/** Кінець ЛОКАЛЬНОГО дня зазначеної миті (ISO) — верхня межа вікна спанів. */
-function endOfLocalDayIso(iso: string): string {
-  const d = new Date(iso);
-  d.setHours(23, 59, 59, 999);
-  return d.toISOString();
 }
 
 function StatusNote({ children }: { children: React.ReactNode }) {

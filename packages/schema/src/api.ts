@@ -134,12 +134,18 @@ export const searchResultsSchema = z.object({
   ),
 });
 
-/** Читацький інтервал. endedAt NULL ⇒ таймер іде. */
+/** Читацький інтервал. endedAt NULL ⇒ таймер іде. sessionId = сесія, де стартувало. */
 export const readingSpanDtoSchema = z.object({
   id: z.uuid(),
+  sessionId: z.uuid().nullable(),
   startedAt: z.iso.datetime({ offset: true }),
   endedAt: z.iso.datetime({ offset: true }).nullable(),
   createdAt: z.iso.datetime({ offset: true }),
+});
+
+/** POST /reading-spans/start — тіло: сесія, у якій стартує читання (може бути відсутня). */
+export const startReadingSpanInputSchema = z.object({
+  sessionId: z.uuid().nullish(),
 });
 
 export const readingSpanListSchema = z.array(readingSpanDtoSchema);
@@ -166,6 +172,7 @@ export const updateReadingSpanInputSchema = z
   });
 
 export type ReadingSpanDto = z.infer<typeof readingSpanDtoSchema>;
+export type StartReadingSpanInput = z.infer<typeof startReadingSpanInputSchema>;
 export type ActiveReadingSpan = z.infer<typeof activeReadingSpanSchema>;
 export type StopReadingSpanResult = z.infer<typeof stopReadingSpanResultSchema>;
 export type UpdateReadingSpanInput = z.infer<typeof updateReadingSpanInputSchema>;

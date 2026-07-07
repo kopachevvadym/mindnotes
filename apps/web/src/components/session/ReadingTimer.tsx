@@ -12,7 +12,7 @@ import { formatTimerClock } from "@/lib/format";
  * Стан переживає рефреш через GET /reading-spans/active; лічильник — локальний тік,
  * без полінгу сервера.
  */
-export function ReadingTimer() {
+export function ReadingTimer({ sessionId }: { sessionId: string }) {
   const { data } = useQuery(activeSpanQuery());
   const span = data?.span ?? null;
   const startSpan = useStartSpan();
@@ -63,7 +63,7 @@ export function ReadingTimer() {
           size="icon"
           aria-label="Почати читання"
           title="Почати читання"
-          onClick={() => startSpan.mutate()}
+          onClick={() => startSpan.mutate(sessionId)}
           disabled={startSpan.isPending}
           className="shrink-0 text-muted-foreground"
         >

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, asc, count, desc, eq, gte, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, ne } from "drizzle-orm";
 import {
   sessions,
   thoughts,
@@ -23,13 +23,13 @@ import {
   searchResultsSchema,
   readingSpanDtoSchema,
   readingSpanListSchema,
+  startReadingSpanInputSchema,
   activeReadingSpanSchema,
   stopReadingSpanResultSchema,
   updateReadingSpanInputSchema,
   THOUGHT_EDIT_WINDOW_MIN,
   READING_SPAN_MIN_MIN,
 } from "@mindnotes/schema";
-import { z } from "zod";
 import { db } from "./db";
 import { env } from "./env";
 import {
@@ -533,14 +533,29 @@ async function findActiveSpan() {
   return row;
 }
 
-// POST /reading-spans/start → ідемпотентно: якщо активний уже є — повертаємо його
+// POST /reading-spans/start → ідемпотентно: якщо активний уже є — повертаємо його.
+// Тіло { sessionId } помічає інтервал як читання цієї сесії.
 app.post("/reading-spans/start", async (c) => {
+  const json = await c.req.json().catch(() => ({}));
+  const parsed = startReadingSpanInputSchema.safeParse(json ?? {});
+  if (!parsed.success) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+  const sessionId = parsed.data.sessionId ?? null;
+
   const active = await findActiveSpan();
   if (active) {
     return c.json(readingSpanDtoSchema.parse(serializeReadingSpan(active)));
   }
 
-  const [row] = await db.insert(readingSpans).values({}).returning();
+  if (sessionId) {
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    if (!session) {
+      return c.json({ error: "session_not_found" }, 404);
+    }
+  }
+
+  const [row] = await db.insert(readingSpans).values({ sessionId }).returning();
   return c.json(readingSpanDtoSchema.parse(serializeReadingSpan(row!)), 201);
 });
 
@@ -579,35 +594,15 @@ app.get("/reading-spans/active", async (c) => {
   );
 });
 
-const spansRangeQuerySchema = z.object({
-  from: z.iso.datetime({ offset: true }).optional(),
-  to: z.iso.datetime({ offset: true }).optional(),
-});
-
-// GET /reading-spans?from=&to= → спани, що ПЕРЕТИНАЮТЬ діапазон (для рендера в потоці).
-// Активний (ended_at NULL) вважається відкритим досі, тож перетинає будь-який from ≤ зараз.
+// GET /reading-spans?sessionId= → інтервали, привʼязані до сесії (для рендера в потоці);
+// без sessionId — усі (глобально). Найраніші зверху.
 app.get("/reading-spans", async (c) => {
-  const parsed = spansRangeQuerySchema.safeParse({
-    from: c.req.query("from"),
-    to: c.req.query("to"),
-  });
-  if (!parsed.success) {
-    return c.json({ error: "invalid_query" }, 400);
-  }
-
-  const conds = [];
-  if (parsed.data.from) {
-    const from = new Date(parsed.data.from);
-    conds.push(or(isNull(readingSpans.endedAt), gte(readingSpans.endedAt, from)));
-  }
-  if (parsed.data.to) {
-    conds.push(lte(readingSpans.startedAt, new Date(parsed.data.to)));
-  }
+  const sessionId = c.req.query("sessionId");
 
   const rows = await db
     .select()
     .from(readingSpans)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(sessionId ? eq(readingSpans.sessionId, sessionId) : undefined)
     .orderBy(asc(readingSpans.startedAt));
 
   return c.json(readingSpanListSchema.parse(rows.map(serializeReadingSpan)));

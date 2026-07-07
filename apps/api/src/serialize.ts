@@ -40,6 +40,7 @@ export function serializeContext(row: ContextRow): ContextDto {
 export function serializeReadingSpan(row: ReadingSpanRow): ReadingSpanDto {
   return {
     id: row.id,
+    sessionId: row.sessionId,
     startedAt: row.startedAt.toISOString(),
     endedAt: row.endedAt ? row.endedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
